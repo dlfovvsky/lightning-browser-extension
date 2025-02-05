@@ -1,16 +1,7 @@
 {
   "translation": {
     "welcome": {
-      "title": "Вітаємо у Alby",
-      "nav": {
-        "welcome": "Вітаємо",
-        "password": "Ваш пароль",
-        "connect": "Ваш обліковий запис у Lightning",
-        "done": "Готово"
-      },
       "set_password": {
-        "title": "Встановити пароль для розблокування",
-        "description": "Пароль використовується для захисту вашого гаманця і надання доступу до розширення браузера. Його не можна скинути і він є відокремленим від вашого паролю до облікового запису Alby.",
         "choose_password": {
           "label": "Оберіть пароль для розблокування:"
         },
@@ -36,18 +27,11 @@
       }
     },
     "choose_path": {
-      "title": "З'єднатися",
-      "description": "Під'єднайте Ваш lightning гаманець до розширення, щоб почати робити онлайн платежі з Alby",
       "alby": {
-        "title": "Alby",
-        "description": "Зареєструйтеся або скористайтеся наявним обліковим записом Alby, щоб миттєво розпочати роботу з lightning платежами.",
-        "create_new": "Зареєструватись"
+        "title": "Alby"
       },
       "other": {
-        "title": "Інші гаманці",
-        "description": "",
-        "and_more": "",
-        "connect": ""
+        "title": "Інші гаманці"
       }
     },
     "alby": {
@@ -64,35 +48,6 @@
             "confirm_password": "",
             "mismatched_password": ""
           }
-        },
-        "forgot_password": "",
-        "title": "",
-        "create_account": "",
-        "login_account": "",
-        "host_wallet": "",
-        "email": {
-          "create": {
-            "label": ""
-          },
-          "login": {
-            "label": ""
-          }
-        },
-        "optional_lightning_note": {
-          "part1": "",
-          "part2": "",
-          "part3": "",
-          "part4": ""
-        },
-        "optional_lightning_address": {
-          "label": "",
-          "suffix": "",
-          "title": ""
-        },
-        "errors": {
-          "create_wallet_error": "",
-          "create_wallet_error1": "",
-          "create_wallet_error2": ""
         }
       }
     },
@@ -100,7 +55,6 @@
       "title": "",
       "description": "",
       "lnd": {
-        "title": "",
         "page": {
           "title": "",
           "description": ""
@@ -112,7 +66,6 @@
         "macaroon": {
           "label": ""
         },
-        "or": "",
         "drag_and_drop": "",
         "errors": {
           "connection_failed": ""
@@ -120,27 +73,9 @@
       },
       "lnc": {
         "title": "",
-        "page": {
-          "title": "",
-          "description": ""
-        },
         "pairing_phrase": {
           "label": "",
           "placeholder": ""
-        }
-      },
-      "lndhub_bluewallet": {
-        "title": "",
-        "page": {
-          "title": "",
-          "description": ""
-        },
-        "uri": {
-          "label": ""
-        },
-        "errors": {
-          "invalid_uri": "",
-          "connection_failed": ""
         }
       },
       "lndhub_go": {
@@ -189,21 +124,11 @@
         }
       },
       "citadel": {
-        "title": "",
         "page": {
-          "title": "",
-          "instructions": ""
-        },
-        "password": {
-          "label": ""
-        },
-        "url": {
-          "label": "",
-          "placeholder": ""
+          "title": ""
         }
       },
       "umbrel": {
-        "title": "",
         "page": {
           "title": "",
           "instructions": ""
@@ -214,7 +139,6 @@
         }
       },
       "mynode": {
-        "title": "",
         "page": {
           "title": "",
           "instructions": ""
@@ -224,8 +148,7 @@
           "placeholder": ""
         }
       },
-      "start9": {
-        "title": "",
+      "startos": {
         "page": {
           "title": "",
           "instructions": ""
@@ -236,7 +159,6 @@
         }
       },
       "raspiblitz": {
-        "title": "",
         "page": {
           "title": "",
           "instructions1": "",
@@ -247,77 +169,25 @@
           "placeholder": ""
         }
       },
-      "bitcoin_beach": {
-        "title": "",
+      "blink": {
         "page": {
           "title": ""
         }
       },
       "bitcoin_jungle": {
-        "title": "",
         "page": {
           "title": ""
         }
       },
-      "galoy": {
-        "phone_number": {
-          "label": ""
-        },
-        "sms_code": {
-          "label": ""
-        },
-        "jwt": {
-          "label": "",
-          "info": ""
-        },
-        "actions": {
-          "login": "",
-          "request_sms_code": ""
-        },
-        "errors": {
-          "failed_to_request_sms": "",
-          "failed_to_login_sms": "",
-          "setup_failed": "",
-          "missing_jwt": "",
-          "invalid_jwt": ""
-        }
-      },
-      "kollider": {
-        "title": "",
-        "description": "",
-        "page": {
-          "title": "",
-          "description": ""
-        },
-        "username": {
-          "label": ""
-        },
-        "password": {
-          "label": ""
-        },
-        "currency": {
-          "label": ""
-        },
-        "errors": {
-          "connection_failed": ""
-        }
-      },
       "btcpay": {
-        "title": "",
-        "page": {
-          "title": "",
-          "instructions": ""
-        },
         "config": {
-          "label": "",
-          "placeholder": ""
+          "label": ""
         },
         "errors": {
           "connection_failed": ""
         }
       },
       "commando": {
-        "title": "",
         "page": {
           "title": "",
           "instructions": ""
@@ -354,41 +224,21 @@
         "send_satoshis": "",
         "enable_now": ""
       },
-      "recent_transactions": "",
-      "transaction_list": {
-        "tabs": {
-          "outgoing": "",
-          "incoming": ""
-        }
-      },
-      "allowance_view": {
-        "recent_transactions": "",
-        "allowance": "",
-        "sats_used": "",
-        "no_transactions": ""
-      },
       "default_view": {
-        "recent_transactions": "",
-        "no_transactions": "",
         "is_blocked_hint": "",
         "block_removed": ""
       }
     },
     "accounts": {
-      "title": "",
       "account_view": {
-        "title1": "",
-        "title2": "",
         "name": {
           "title": "",
           "placeholder": ""
         },
         "export": {
-          "title": "",
           "screen_reader": "",
           "waiting": "",
           "your_ln_address": "",
-          "tip_mobile": "",
           "export_uri": "",
           "scan_qr": ""
         },
@@ -398,7 +248,6 @@
           "private_key": {
             "title": "",
             "subtitle": "",
-            "warning": "",
             "success": "",
             "successfully_removed": "",
             "label": ""
@@ -422,27 +271,10 @@
             "failed_to_load": ""
           }
         },
-        "remove": {
-          "title": "",
-          "subtitle": "",
-          "confirm": ""
-        },
         "actions": {
-          "remove_account": "",
           "export": ""
         }
-      },
-      "actions": {
-        "add_account": ""
       }
-    },
-    "enable": {
-      "title": "",
-      "allow": "",
-      "request1": "",
-      "request2": "",
-      "block_and_ignore": "",
-      "block_added": ""
     },
     "unlock": {
       "unlock_to_continue": "",
@@ -460,7 +292,6 @@
       }
     },
     "settings": {
-      "title": "",
       "browser_notifications": {
         "title": "",
         "subtitle": ""
@@ -468,18 +299,6 @@
       "website_enhancements": {
         "title": "",
         "subtitle": ""
-      },
-      "lnurl_auth": {
-        "title": "",
-        "hint": "",
-        "legacy_lnurl_auth_202207": {
-          "title": "",
-          "subtitle": ""
-        },
-        "legacy_lnurl_auth": {
-          "title": "",
-          "subtitle": ""
-        }
       },
       "camera_access": {
         "title": "",
@@ -545,22 +364,10 @@
           "mismatched_password": ""
         },
         "success": ""
-      },
-      "nostr": {
-        "title": "",
-        "hint": "",
-        "private_key": {
-          "title": "",
-          "subtitle": "",
-          "go_to": ""
-        }
       }
     },
     "send": {
       "title": "",
-      "qrcode": {
-        "title": ""
-      },
       "input": {
         "label": "",
         "hint": ""
@@ -628,45 +435,6 @@
         "status": ""
       }
     },
-    "discover": {
-      "title": "",
-      "description": "",
-      "list": {
-        "trading": "",
-        "gaming": "",
-        "entertaiment": "",
-        "shopping": "",
-        "miscellaneous": "",
-        "showcases": "",
-        "nostr": ""
-      },
-      "tips": {
-        "title": "",
-        "description": "",
-        "top_up_wallet": {
-          "title": "",
-          "description": "",
-          "label1": "",
-          "label2": ""
-        },
-        "pin": {
-          "title": "",
-          "description1": "",
-          "description2": "",
-          "description3": ""
-        },
-        "demo": {
-          "title": "",
-          "description": "",
-          "label1": ""
-        },
-        "address": {
-          "title": "",
-          "description": "",
-          "label1": ""
-        }
-      }
-    },
     "publishers": {
       "title": "",
       "description": "",
@@ -727,9 +495,7 @@
     },
     "nostr": {
       "title": "",
-      "allow": "",
       "content": "",
-      "allow_sign": "",
       "block_and_ignore": "",
       "block_added": ""
     }
@@ -737,13 +503,11 @@
   "common": {
     "password": "",
     "confirm_password": "",
-    "advanced": "",
     "success": "",
     "error": "",
-    "settings": "",
     "accounts": "",
     "discover": "",
-    "websites": "",
+    "connected_sites": "",
     "sats_one": "",
     "sats_other": "",
     "loading": "",
@@ -777,6 +541,7 @@
       "export": "",
       "remove": "",
       "copy": "",
+      "copy_invoice": "",
       "log_in": "",
       "remember": ""
     },
@@ -799,8 +564,7 @@
       "edit_allowance": {
         "title": "",
         "screen_reader": ""
-      },
-      "edit_permissions": ""
+      }
     },
     "qrcode_scanner": {
       "title": "",
@@ -812,7 +576,7 @@
         "allow_camera_access": ""
       }
     },
-    "transactionsTable": {
+    "transactions_table": {
       "fee": "",
       "preimage": "",
       "received": "",
@@ -825,9 +589,6 @@
       },
       "open_location": ""
     },
-    "confirm_or_cancel": {
-      "only_trusted": ""
-    },
     "budget_control": {
       "remember": {
         "label": "",
@@ -836,12 +597,6 @@
       "budget": {
         "label": ""
       }
-    },
-    "companion_download_info": {
-      "description": "",
-      "download_here": "",
-      "using_tor": "",
-      "or": ""
     },
     "toasts": {
       "connection_error": {
@@ -858,33 +613,18 @@
       }
     },
     "account_menu": {
-      "screen_reader": "",
-      "title": "",
-      "options": {
-        "account": {
-          "add": "",
-          "manage": ""
-        }
-      }
+      "screen_reader": ""
     },
     "publishers_table": {
-      "payments": "",
-      "used": ""
+      "payments": ""
     },
     "badge": {
       "label": {
-        "active": "",
         "auth": ""
       }
     }
   },
   "permissions": {
-    "nostr": {
-      "getpublickey": "",
-      "nip04encrypt": "",
-      "nip04decrypt": "",
-      "signmessage": ""
-    },
     "commando": {
       "bkpr-listbalances": "",
       "checkmessage": "",

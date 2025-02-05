@@ -1,17 +1,26 @@
 import Button from "@components/Button";
 import ConfirmOrCancel from "@components/ConfirmOrCancel";
 import Container from "@components/Container";
+import Hyperlink from "@components/Hyperlink";
 import PublisherCard from "@components/PublisherCard";
 import ResultCard from "@components/ResultCard";
 import SatButtons from "@components/SatButtons";
 import DualCurrencyField from "@components/form/DualCurrencyField";
 import TextField from "@components/form/TextField";
+import {
+  PopiconsChevronBottomLine,
+  PopiconsChevronLeftLine,
+  PopiconsChevronTopLine,
+} from "@popicons/react";
+import fetchAdapter from "@vespaiach/axios-fetch-adapter";
 import axios from "axios";
 import React, { Fragment, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import Header from "~/app/components/Header";
+import IconButton from "~/app/components/IconButton";
 import ScreenHeader from "~/app/components/ScreenHeader";
+import toast from "~/app/components/Toast";
 import { useAccount } from "~/app/context/AccountContext";
 import { useSettings } from "~/app/context/SettingsContext";
 import { useNavigationState } from "~/app/hooks/useNavigationState";
@@ -21,9 +30,9 @@ import msg from "~/common/lib/msg";
 import utils from "~/common/lib/utils";
 import type {
   LNURLError,
+  LNURLPayServiceResponse,
   LNURLPaymentInfo,
   LNURLPaymentSuccessAction,
-  LNURLPayServiceResponse,
   PaymentResponse,
 } from "~/types";
 
@@ -40,6 +49,7 @@ const Dd = ({ children }: { children: React.ReactNode }) => (
 function LNURLPay() {
   const navState = useNavigationState();
   const details = navState.args?.lnurlDetails as LNURLPayServiceResponse;
+
   const {
     isLoading: isLoadingSettings,
     settings,
@@ -59,6 +69,15 @@ function LNURLPay() {
       ""
   );
 
+  const amountMin = Math.floor(+details.minSendable / 1000);
+  const amountMax = Math.floor(+details.maxSendable / 1000);
+  const amountExceeded =
+    (auth?.account?.currency || "BTC") !== "BTC"
+      ? false
+      : +valueSat > (auth?.account?.balance || 0);
+  const rangeExceeded = +valueSat > amountMax || +valueSat < amountMin;
+
+  const [showMoreFields, setShowMoreFields] = useState(false);
   const [fiatValue, setFiatValue] = useState("");
   const [comment, setComment] = useState("");
   const [userName, setUserName] = useState("");
@@ -126,6 +145,7 @@ function LNURLPay() {
             params,
             // https://github.com/fiatjaf/lnurl-rfc/blob/luds/01.md#http-status-codes-and-content-type
             validateStatus: () => true,
+            adapter: fetchAdapter,
           }
         );
 
@@ -141,7 +161,7 @@ function LNURLPay() {
         };
 
         if (!isSuccessResponse(response.data)) {
-          toast.warn(response.data.reason);
+          toast.error(response.data.reason);
           return;
         }
       } catch (e) {
@@ -155,13 +175,11 @@ function LNURLPay() {
 
       const isValidInvoice = lnurl.verifyInvoice({
         paymentInfo,
-        metadata: details.metadata,
         amount: parseInt(valueSat) * 1000,
-        payerdata,
       });
 
       if (!isValidInvoice) {
-        toast.warn("Payment aborted: Invalid invoice.");
+        toast.error("Payment aborted: Invalid invoice.");
         return;
       }
 
@@ -187,7 +205,7 @@ function LNURLPay() {
             break;
           case "aes": // TODO: For aes, LN WALLET must attempt to decrypt a ciphertext with payment preimage
           default:
-            toast.warn(
+            toast.error(
               `Not implemented yet. Please submit an issue to support success action: ${paymentInfo.successAction.tag}`
             );
             break;
@@ -335,7 +353,7 @@ function LNURLPay() {
             </dl>
           )}
         </div>
-        <div className="mb-4">
+        <div>
           <Button onClick={close} label={tCommon("actions.close")} fullWidth />
         </div>
       </Container>
@@ -347,25 +365,60 @@ function LNURLPay() {
     confirm();
   }
 
+  function toggleShowMoreFields() {
+    setShowMoreFields(!showMoreFields);
+  }
+
+  function showCommentField() {
+    return (
+      details &&
+      typeof details.commentAllowed === "number" &&
+      details.commentAllowed > 0
+    );
+  }
+
+  function showNameField() {
+    return !!details?.payerData?.name;
+  }
+
+  function showEmailField() {
+    return !!details?.payerData?.email;
+  }
+
   return (
     <>
       <div className="flex flex-col grow overflow-hidden">
-        <ScreenHeader
-          title={!successAction ? tCommon("actions.send") : tCommon("success")}
-        />
+        {!navState.isPrompt ? (
+          <Header
+            headerLeft={
+              <IconButton
+                onClick={() => navigate(-1)}
+                icon={<PopiconsChevronLeftLine className="w-5 h-5" />}
+              />
+            }
+          >
+            {!successAction ? tCommon("actions.send") : tCommon("success")}
+          </Header>
+        ) : (
+          <ScreenHeader
+            title={
+              !successAction ? tCommon("actions.send") : tCommon("success")
+            }
+          />
+        )}
         {!successAction ? (
           <>
             <div className="grow overflow-y-auto no-scrollbar">
-              <Container maxWidth="sm">
+              <Container justifyBetween maxWidth="sm">
                 <PublisherCard
                   title={navState.origin?.name}
                   description={getRecipient()}
                   image={navState.origin?.icon || getImage()}
                 />
-                <form onSubmit={handleSubmit}>
-                  <fieldset disabled={loadingConfirm}>
-                    <div className="my-4">
-                      <dl className="overflow-hidden">
+                <form onSubmit={handleSubmit} className="flex grow">
+                  <div className="grow flex flex-col justify-between">
+                    <fieldset disabled={loadingConfirm}>
+                      <dl className="mt-4 overflow-hidden">
                         <>
                           {formattedMetadata(details.metadata).map(
                             ([dt, dd], i) => (
@@ -394,69 +447,94 @@ function LNURLPay() {
                               autoFocus
                               id="amount"
                               label={t("amount.label")}
-                              min={Math.floor(+details.minSendable / 1000)}
-                              max={Math.floor(+details.maxSendable / 1000)}
+                              min={amountMin}
+                              max={amountMax}
+                              rangeExceeded={rangeExceeded}
                               value={valueSat}
                               onChange={(e) => setValueSat(e.target.value)}
                               fiatValue={fiatValue}
+                              hint={`${tCommon("balance")}: ${auth
+                                ?.balancesDecorated?.accountBalance}`}
+                              amountExceeded={amountExceeded}
                             />
                             <SatButtons
+                              min={amountMin}
+                              max={amountMax}
                               onClick={setValueSat}
                               disabled={loadingConfirm}
                             />
                           </div>
                         )}
-                      {details &&
-                        typeof details?.commentAllowed === "number" &&
-                        details?.commentAllowed > 0 && (
-                          <div className="mt-4">
-                            <TextField
-                              id="comment"
-                              label={t("comment.label")}
-                              placeholder={tCommon("optional")}
-                              onChange={(e) => {
-                                setComment(e.target.value);
-                              }}
-                            />
-                          </div>
-                        )}
-                      {details && details?.payerData?.name && (
+
+                      {showCommentField() && (
                         <div className="mt-4">
                           <TextField
-                            id="name"
-                            label={t("name.label")}
+                            id="comment"
+                            label={t("comment.label")}
                             placeholder={tCommon("optional")}
-                            value={userName}
                             onChange={(e) => {
-                              setUserName(e.target.value);
+                              setComment(e.target.value);
                             }}
                           />
                         </div>
                       )}
-                      {details && details?.payerData?.email && (
-                        <div className="mt-4">
-                          <TextField
-                            id="email"
-                            label={t("email.label")}
-                            placeholder={tCommon("optional")}
-                            value={userEmail}
-                            onChange={(e) => {
-                              setUserEmail(e.target.value);
-                            }}
-                          />
+
+                      {(showNameField() || showEmailField()) && (
+                        <div className="flex justify-center mt-4 caret-transparent">
+                          <Hyperlink onClick={toggleShowMoreFields}>
+                            {tCommon("actions.more")}{" "}
+                            {showMoreFields ? (
+                              <PopiconsChevronTopLine className="h-5 w-5 inline-flex" />
+                            ) : (
+                              <PopiconsChevronBottomLine className="h-5 w-5 inline-flex" />
+                            )}
+                          </Hyperlink>
                         </div>
                       )}
-                    </div>
-                    <div className="pt-2 border-t border-gray-200 dark:border-white/10">
+
+                      {showMoreFields && (
+                        <div className="mb-4">
+                          {showNameField() && (
+                            <div className="mt-4">
+                              <TextField
+                                id="name"
+                                label={t("name.label")}
+                                placeholder={tCommon("optional")}
+                                value={userName}
+                                onChange={(e) => {
+                                  setUserName(e.target.value);
+                                }}
+                              />
+                            </div>
+                          )}
+                          {showEmailField() && (
+                            <div className="mt-4">
+                              <TextField
+                                id="email"
+                                label={t("email.label")}
+                                placeholder={tCommon("optional")}
+                                value={userEmail}
+                                onChange={(e) => {
+                                  setUserEmail(e.target.value);
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </fieldset>
+                    <div className="mt-2 dark:border-white/10">
                       <ConfirmOrCancel
                         isFocused={false}
                         label={tCommon("actions.confirm")}
                         loading={loadingConfirm}
-                        disabled={loadingConfirm || !valueSat}
+                        disabled={
+                          loadingConfirm || amountExceeded || rangeExceeded
+                        }
                         onCancel={reject}
                       />
                     </div>
-                  </fieldset>
+                  </div>
                 </form>
               </Container>
             </div>

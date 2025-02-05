@@ -43,6 +43,19 @@ export class DB extends Dexie {
     this.version(3).stores({
       permissions: "++id,allowanceId,host,method,enabled,blocked,createdAt",
     });
+    this.version(4).stores({
+      permissions:
+        "++id,accountId,allowanceId,host,method,enabled,blocked,createdAt",
+    });
+    this.version(5).stores({
+      payments:
+        "++id,accountId,allowanceId,host,location,name,description,totalAmount,totalFees,preimage,paymentRequest,paymentHash,destination,createdAt",
+    });
+    this.version(6).stores({
+      allowances:
+        "++id,&host,name,imageURL,tag,enabled,*enabledFor,totalBudget,remainingBudget,lastPaymentAt,lnurlAuth,createdAt",
+    });
+
     this.on("ready", this.loadFromStorage.bind(this));
     this.allowances = this.table("allowances");
     this.payments = this.table("payments");
@@ -76,6 +89,10 @@ export class DB extends Dexie {
       permissions: permissionsArray,
     });
     return true;
+  }
+
+  async clearAllTables() {
+    return Promise.all(this.tables.map((table) => table.clear()));
   }
 
   // Loads the data from the browser.storage and adds the data to the IndexedDB.

@@ -1,19 +1,21 @@
 import Container from "@components/Container";
+import Loading from "@components/Loading";
 import PublishersTable from "@components/PublishersTable";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 import Button from "~/app/components/Button";
+import toast from "~/app/components/Toast";
 import msg from "~/common/lib/msg";
-import { Allowance, Badge, Publisher } from "~/types";
+import { Allowance } from "~/types";
 
 function Publishers() {
   const { t } = useTranslation("translation", {
     keyPrefix: "publishers",
   });
 
-  const [publishers, setPublishers] = useState<Publisher[]>([]);
+  const [allowances, setAllowances] = useState<Allowance[]>([]);
+  const [publishersLoading, setPublishersLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
   function navigateToPublisher(id: number) {
@@ -25,61 +27,15 @@ function Publishers() {
       const allowanceResponse = await msg.request<{
         allowances: Allowance[];
       }>("listAllowances");
-
-      const allowances: Publisher[] = allowanceResponse.allowances.reduce<
-        Publisher[]
-      >((acc, allowance) => {
-        if (!allowance?.id || !allowance.enabled) return acc;
-
-        const {
-          id,
-          host,
-          imageURL,
-          name,
-          payments,
-          paymentsAmount,
-          paymentsCount,
-          percentage,
-          totalBudget,
-          usedBudget,
-        } = allowance;
-
-        const badges: Badge[] = [];
-        if (allowance.remainingBudget > 0) {
-          badges.push({
-            label: "active",
-            color: "green-bitcoin",
-            textColor: "white",
-          });
-        }
-        if (allowance.lnurlAuth) {
-          badges.push({
-            label: "auth",
-            color: "green-bitcoin",
-            textColor: "white",
-          });
-        }
-        acc.push({
-          id,
-          host,
-          imageURL,
-          name,
-          payments,
-          paymentsAmount,
-          paymentsCount,
-          percentage,
-          totalBudget,
-          usedBudget,
-          badges,
-        });
-
-        return acc;
-      }, []);
-
-      setPublishers(allowances);
+      const allowances = allowanceResponse.allowances.filter(
+        (a) => a.id && a.enabled
+      );
+      setAllowances(allowances);
     } catch (e) {
       console.error(e);
       if (e instanceof Error) toast.error(`Error: ${e.message}`);
+    } finally {
+      setPublishersLoading(false);
     }
   }
 
@@ -97,17 +53,29 @@ function Publishers() {
         {t("description")}
       </p>
 
-      {publishers.length > 0 ? (
-        <PublishersTable
-          publishers={publishers}
-          navigateToPublisher={navigateToPublisher}
-        />
+      {publishersLoading ? (
+        <div className="flex justify-center mt-12">
+          <Loading />
+        </div>
       ) : (
         <>
-          <p className="dark:text-white mb-4"> {t("no_info")}</p>
-          <Link to="/discover">
-            <Button primary label={t("discover")} />
-          </Link>
+          {allowances.length > 0 ? (
+            <PublishersTable
+              allowances={allowances}
+              navigateToPublisher={navigateToPublisher}
+            />
+          ) : (
+            <>
+              <p className="dark:text-white mb-4"> {t("no_info")}</p>
+              <Button
+                primary
+                label={t("discover")}
+                onClick={() =>
+                  window.open(`https://getalby.com/discover`, "_blank")
+                }
+              />
+            </>
+          )}
         </>
       )}
     </Container>

@@ -1,15 +1,23 @@
-import { PaymentRequestObject } from "bolt11";
-import { ACCOUNT_CURRENCIES, CURRENCIES, TIPS } from "~/common/constants";
+import {
+  CreateSwapParams,
+  GetAccountInformationResponse,
+} from "@getalby/sdk/dist/types";
+import { PaymentRequestObject } from "bolt11-signet";
+import { Runtime } from "webextension-polyfill";
+import { ACCOUNT_CURRENCIES, CURRENCIES } from "~/common/constants";
 import connectors from "~/extension/background-script/connectors";
 import {
-  ConnectorInvoice,
+  ConnectorTransaction,
   SendPaymentResponse,
   WebLNNode,
 } from "~/extension/background-script/connectors/connector.interface";
-
-import { Event } from "./extension/ln/nostr/types";
+import { Event } from "./extension/providers/nostr/types";
 
 export type ConnectorType = keyof typeof connectors;
+
+export type BitcoinNetworkType = "bitcoin" | "testnet" | "regtest";
+
+export type LiquidNetworkType = "liquid" | "testnet" | "regtest";
 
 export interface Account {
   id: string;
@@ -17,6 +25,13 @@ export interface Account {
   config: string;
   name: string;
   nostrPrivateKey?: string | null;
+  mnemonic?: string | null;
+  hasImportedNostrKey?: boolean;
+  hasSeenInfoBanner?: boolean;
+  bitcoinNetwork?: BitcoinNetworkType;
+  isMnemonicBackupDone?: boolean;
+  useMnemonicForLnurlAuth?: boolean;
+  avatarUrl?: string;
 }
 
 export interface Accounts {
@@ -31,8 +46,39 @@ export interface AccountInfo {
   balance: number;
   id: string;
   name: string;
+  connectorType: ConnectorType;
   currency: ACCOUNT_CURRENCIES;
+  avatarUrl?: string;
+  lightningAddress?: string;
+  nodeRequired?: boolean;
+  sharedNode?: boolean;
+  usingFeeCredits?: boolean;
+  limits?: {
+    max_send_volume: number;
+    max_send_amount: number;
+    max_receive_volume: number;
+    max_receive_amount: number;
+    max_account_balance: number;
+    max_volume_period_in_days: number;
+  };
 }
+
+export type GetAccountInformationResponses = GetAccountInformationResponse & {
+  node_required: boolean;
+  using_fee_credits: boolean;
+  limits?: {
+    max_send_volume: number;
+    max_send_amount: number;
+    max_receive_volume: number;
+    max_receive_amount: number;
+    max_account_balance: number;
+    max_volume_period_in_days: number;
+  };
+  node_type?: string;
+  node_connection_error_count?: number;
+  shared_node: boolean;
+  custodial: boolean;
+};
 
 export interface MetaData {
   title?: string;
@@ -60,6 +106,7 @@ export interface OriginData {
 }
 
 export interface PaymentNotificationData {
+  accountId: Account["id"];
   paymentRequestDetails?: PaymentRequestObject | undefined;
   response: SendPaymentResponse | { error: string };
   origin?: OriginData;
@@ -116,6 +163,15 @@ export interface Message {
   prompt?: boolean;
 }
 
+export interface Sender extends Runtime.MessageSender {
+  tlsChannelId?: string;
+  // only Chrome 80+
+  origin?: string;
+  // the below are not necessary
+  documentId?: string;
+  documentLifecycle?: string;
+  nativeApplication?: string;
+}
 // new message  type, please use this
 export interface MessageDefault {
   origin: OriginData | OriginDataInternal;
@@ -138,15 +194,32 @@ export type NavigationState = {
     destination?: string;
     amount?: string;
     customRecords?: Record<string, string>;
+    bitcoinAddress?: string;
+    connector?: string;
+    name?: string;
+    config?: unknown;
     message?: string;
     event?: Event;
     sigHash?: string;
-    description?: string;
-    details?: string;
+
+    // nostr
+    encrypt: {
+      recipientNpub: string;
+      message: string;
+    };
+
+    nip44Encrypt: {
+      recipientNpub: string;
+      message: string;
+    };
+
+    psbt?: string;
     requestPermission: {
       method: string;
       description: string;
     };
+    // liquid
+    pset?: string;
   };
   isPrompt?: true; // only passed via Prompt.tsx
   action: string;
@@ -168,6 +241,14 @@ export interface MessagePaymentAll extends MessageDefault {
   };
 }
 
+export interface MessagePaymentListByAccount extends MessageDefault {
+  action: "getPaymentsByAccount";
+  args: {
+    accountId: Account["id"];
+    limit?: number;
+  };
+}
+
 export interface MessageAccountGet extends MessageDefault {
   args?: { id?: Account["id"] };
   action: "getAccount";
@@ -185,7 +266,11 @@ export interface MessageAccountAdd extends MessageDefault {
 export interface MessageAccountEdit extends MessageDefault {
   args: {
     id: Account["id"];
-    name: Account["name"];
+    name?: Account["name"];
+    bitcoinNetwork?: BitcoinNetworkType;
+    useMnemonicForLnurlAuth?: boolean;
+    isMnemonicBackupDone?: boolean;
+    hasSeenInfoBanner?: boolean;
   };
   action: "editAccount";
 }
@@ -219,6 +304,7 @@ export interface MessagePermissionDelete extends MessageDefault {
   args: {
     host: Permission["host"];
     method: Permission["method"];
+    accountId: Account["id"];
   };
   action: "deletePermission";
 }
@@ -226,6 +312,7 @@ export interface MessagePermissionDelete extends MessageDefault {
 export interface MessagePermissionsList extends MessageDefault {
   args: {
     id: Allowance["id"];
+    accountId: Account["id"];
   };
   action: "listPermissions";
 }
@@ -233,6 +320,7 @@ export interface MessagePermissionsList extends MessageDefault {
 export interface MessagePermissionsDelete extends MessageDefault {
   args: {
     ids: Permission["id"][];
+    accountId: Account["id"];
   };
   action: "deletePermissions";
 }
@@ -258,6 +346,10 @@ export interface MessageBlocklistGet extends MessageDefault {
     host: string;
   };
   action: "getBlocklist";
+}
+
+export interface MessageBlocklistList extends MessageDefault {
+  action: "listBlocklist";
 }
 
 export interface MessageSetIcon extends MessageDefault {
@@ -295,9 +387,9 @@ export interface MessageAllowanceList extends MessageDefault {
   action: "listAllowances";
 }
 
-export interface MessageInvoices extends Omit<MessageDefault, "args"> {
-  args: { limit?: number; isSettled?: boolean };
-  action: "getInvoices";
+export interface MessageGetTransactions extends Omit<MessageDefault, "args"> {
+  args: { limit?: number };
+  action: "getTransactions";
 }
 
 export interface MessageAllowanceEnable extends MessageDefault {
@@ -305,7 +397,11 @@ export interface MessageAllowanceEnable extends MessageDefault {
   args: {
     host: Allowance["host"];
   };
-  action: "public/webln/enable" | "public/nostr/enable";
+  action:
+    | "public/webln/enable"
+    | "public/nostr/enable"
+    | "public/liquid/enable"
+    | "public/alby/enable";
 }
 
 export interface MessageAllowanceDelete extends MessageDefault {
@@ -341,6 +437,44 @@ export interface MessageWebLnLnurl extends MessageDefault {
   action: "webln/lnurl";
 }
 
+export interface MessageGetInfo extends MessageDefault {
+  action: "getInfo";
+}
+
+export interface MessageMakeInvoice extends MessageDefault {
+  args: { memo?: string; defaultMemo?: string; amount?: string };
+  action: "makeInvoice";
+}
+
+export interface MessageReset extends MessageDefault {
+  action: "reset";
+}
+
+export interface MessageStatus extends MessageDefault {
+  action: "status";
+}
+
+export interface MessageSetPassword extends MessageDefault {
+  args: { password: string };
+  action: "setPassword";
+}
+
+export interface MessageAccountValidate extends MessageDefault {
+  args: {
+    connector: ConnectorType;
+    config: Record<string, string>;
+    name: string;
+  };
+  action: "validateAccount";
+}
+
+export type ValidateAccountResponse = {
+  valid: boolean;
+  info: { data: WebLNNode };
+  oAuthToken?: OAuthToken;
+  error?: unknown;
+};
+
 export interface MessageConnectPeer extends MessageDefault {
   args: { pubkey: string; host: string };
   action: "connectPeer";
@@ -375,30 +509,65 @@ export interface MessageCurrencyRateGet extends MessageDefault {
   action: "getCurrencyRate";
 }
 
-export interface MessagePublicKeyGet extends MessageDefault {
+export interface MessageGetLiquidAddress extends MessageDefault {
+  action: "getLiquidAddress";
+}
+
+export interface MessageNostrPublicKeyGetOrPrompt extends MessageDefault {
   action: "getPublicKeyOrPrompt";
 }
 
-export interface MessagePrivateKeyGet extends MessageDefault {
+export interface MessageNostrPublicKeyGet extends MessageDefault {
+  args: {
+    id: Account["id"];
+  };
+  action: "getPublicKey";
+}
+export interface MessageNostrPrivateKeyGet extends MessageDefault {
   args?: {
     id?: Account["id"];
   };
   action: "getPrivateKey";
 }
 
-export interface MessagePrivateKeyGenerate extends MessageDefault {
+export interface MessageNostrPrivateKeyGenerate extends MessageDefault {
   args?: {
-    type?: "random";
+    id?: Account["id"];
   };
   action: "generatePrivateKey";
 }
 
-export interface MessagePrivateKeySet extends MessageDefault {
+export interface MessageNostrPrivateKeySet extends MessageDefault {
   args: {
     id?: Account["id"];
     privateKey: string;
   };
   action: "setPrivateKey";
+}
+
+export interface MessageNostrPrivateKeyRemove extends MessageDefault {
+  args: {
+    id?: Account["id"];
+  };
+  action: "removePrivateKey";
+}
+
+export interface MessageMnemonicSet extends MessageDefault {
+  args: {
+    id?: Account["id"];
+    mnemonic: string;
+  };
+  action: "setMnemonic";
+}
+
+export interface MessageMnemonicGet extends MessageDefault {
+  args?: {
+    id?: Account["id"];
+  };
+  action: "getMnemonic";
+}
+export interface MessageMnemonicGenerate extends MessageDefault {
+  action: "generateMnemonic";
 }
 
 export interface MessageSignEvent extends MessageDefault {
@@ -429,6 +598,86 @@ export interface MessageDecryptGet extends MessageDefault {
     ciphertext: string;
   };
   action: "decrypt";
+}
+
+export interface MessageNip44EncryptGet extends MessageDefault {
+  args: {
+    peer: string;
+    plaintext: string;
+  };
+  action: "encrypt";
+}
+
+export interface MessageNip44DecryptGet extends MessageDefault {
+  args: {
+    peer: string;
+    ciphertext: string;
+  };
+  action: "decrypt";
+}
+
+export interface MessageSignPsbt extends MessageDefault {
+  args: {
+    psbt: string;
+  };
+  action: "signPsbt";
+}
+
+export interface MessageGetPsbtPreview extends MessageDefault {
+  args: {
+    psbt: string;
+  };
+  action: "getPsbtPreview";
+}
+
+export interface MessageBalanceGet extends MessageDefault {
+  action: "getBalance";
+}
+
+export interface MessageGetAddress extends MessageDefault {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  args: {};
+  action: "getAddress";
+}
+
+export interface MessageGetSwapInfo extends MessageDefault {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  args: {};
+  action: "getSwapInfo";
+}
+
+export interface MessageCreateSwap extends MessageDefault {
+  args: CreateSwapParams;
+  action: "getSwapInfo";
+}
+
+// Liquid
+export interface MessageSignPsetWithPrompt extends MessageDefault {
+  args: {
+    pset: string;
+  };
+  action: "signPsetWithPrompt";
+}
+
+export interface MessageSignPset extends MessageDefault {
+  args: {
+    pset: string;
+  };
+  action: "signPset";
+}
+
+export interface MessageGetPSetPreview extends MessageDefault {
+  args: {
+    pset: string;
+  };
+  action: "getPsetPreview";
+}
+
+export interface MessageFetchAssetRegistry extends MessageDefault {
+  args: {
+    psetPreview: PsetPreview;
+  };
+  action: "fetchAssetRegistry";
 }
 
 export interface LNURLChannelServiceResponse {
@@ -519,12 +768,13 @@ export interface RequestInvoiceArgs {
 }
 
 export type Transaction = {
+  timestamp: number;
   amount?: string;
   boostagram?: Invoice["boostagram"];
-  badges?: Badge[];
   createdAt?: string;
   currency?: string;
-  date: string;
+  timeAgo: string;
+  paymentHash?: string;
   description?: string;
   host?: string;
   id: string;
@@ -533,14 +783,17 @@ export type Transaction = {
   preimage: string;
   title: string | React.ReactNode;
   totalAmount: Allowance["payments"][number]["totalAmount"];
+  displayAmount?: [number, ACCOUNT_CURRENCIES];
   totalAmountFiat?: string;
   totalFees?: Allowance["payments"][number]["totalFees"];
-  type?: "sent" | "sending" | "received";
+  type?: "sent" | "received";
   value?: string;
   publisherLink?: string; // either the invoice URL if on PublisherSingleView, or the internal link to Publisher
+  state?: "settled" | "pending" | "failed";
 };
 
 export interface DbPayment {
+  accountId: string;
   allowanceId: string;
   createdAt: string;
   description: string;
@@ -560,17 +813,38 @@ export interface Payment extends Omit<DbPayment, "id"> {
   id: number;
 }
 
+export enum NostrPermissionPreset {
+  TRUST_FULLY = "trust_fully",
+  REASONABLE = "reasonable",
+  PARANOID = "paranoid",
+}
+
+export enum PermissionOption {
+  ASK_EVERYTIME = "ask_everytime",
+  DONT_ASK_CURRENT = "dont_ask_current",
+  DONT_ASK_ANY = "dont_ask_any",
+}
+
+export enum PermissionMethodBitcoin {
+  BITCOIN_GETADDRESS = "bitcoin/getAddress",
+}
+
+export enum PermissionMethodLiquid {
+  LIQUID_GETADDRESS = "liquid/getAddress",
+}
+
 export enum PermissionMethodNostr {
   NOSTR_SIGNMESSAGE = "nostr/signMessage",
   NOSTR_SIGNSCHNORR = "nostr/signSchnorr",
   NOSTR_GETPUBLICKEY = "nostr/getPublicKey",
-  NOSTR_NIP04DECRYPT = "nostr/nip04decrypt",
-  NOSTR_NIP04ENCRYPT = "nostr/nip04encrypt",
+  NOSTR_DECRYPT = "nostr/decrypt",
+  NOSTR_ENCRYPT = "nostr/encrypt",
 }
 
 export interface DbPermission {
   id?: number;
   createdAt: string;
+  accountId: string;
   allowanceId: number;
   host: string;
   method: string | PermissionMethodNostr;
@@ -623,6 +897,7 @@ export interface Blocklist extends DbBlocklist {}
 
 export interface DbAllowance {
   createdAt: string;
+  enabledFor?: string[];
   enabled: boolean;
   host: string;
   id?: number;
@@ -639,15 +914,13 @@ export interface Allowance extends Omit<DbAllowance, "id"> {
   payments: Payment[];
   paymentsAmount: number;
   paymentsCount: number;
-  percentage: string;
+  percentage: number;
   usedBudget: number;
 }
 
 export interface SettingsStorage {
   browserNotifications: boolean;
   websiteEnhancements: boolean;
-  legacyLnurlAuth: boolean;
-  isUsingLegacyLnurlAuthKey: boolean;
   userName: string;
   userEmail: string;
   locale: string;
@@ -655,15 +928,12 @@ export interface SettingsStorage {
   showFiat: boolean;
   currency: CURRENCIES;
   exchange: SupportedExchanges;
-  debug: boolean;
   nostrEnabled: boolean;
-  closedTips: TIPS[];
 }
 
 export interface Badge {
-  label: "active" | "auth";
-  color: string;
-  textColor: string;
+  label: "budget" | "auth" | "imported";
+  className: string;
 }
 
 export interface Publisher
@@ -688,14 +958,17 @@ export type SupportedExchanges = "alby" | "coindesk" | "yadio";
 
 export interface Invoice {
   id: string;
-  memo: string;
-  type: "received";
+  memo?: string;
+  type: "received" | "sent";
   settled: boolean;
-  settleDate: number;
-  totalAmount: string;
+  settleDate: number | null;
+  creationDate: number;
+  totalAmount: number;
   totalAmountFiat?: string;
+  displayAmount?: [number, ACCOUNT_CURRENCIES];
   preimage: string;
-  custom_records?: ConnectorInvoice["custom_records"];
+  paymentHash?: string;
+  custom_records?: ConnectorTransaction["custom_records"];
   boostagram?: {
     app_name: string;
     name: string;
@@ -714,3 +987,52 @@ export interface Invoice {
 }
 
 export type BrowserType = "chrome" | "firefox";
+
+export interface DeferredPromise {
+  promise: Promise<unknown>;
+  resolve?: () => void;
+  reject?: () => void;
+}
+
+export type Theme = "dark" | "light";
+
+export type OAuthToken = {
+  access_token: string;
+  refresh_token: string;
+  expires_at: number;
+};
+
+export type BitcoinAddress = {
+  publicKey: string;
+  derivationPath: string;
+  index: number;
+  address: string;
+};
+
+export type LiquidAddress = {
+  amount: number;
+  address: string;
+  asset: string;
+};
+
+export type PsetPreview = {
+  inputs: LiquidAddress[];
+  outputs: LiquidAddress[];
+};
+
+export type EsploraAssetInfos = {
+  assetHash: string;
+  ticker: string;
+  name: string;
+  precision: number;
+};
+
+export type EsploraAssetRegistry = Record<string, EsploraAssetInfos>;
+
+export type Address = { amount: number; address: string };
+
+export type PsbtPreview = {
+  inputs: Address[];
+  outputs: Address[];
+  fee: number;
+};

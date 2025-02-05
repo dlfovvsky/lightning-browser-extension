@@ -1,11 +1,11 @@
 import {
-  useState,
-  useEffect,
   createContext,
-  useContext,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import { toast } from "react-toastify";
+import toast from "~/app/components/Toast";
 import { useSettings } from "~/app/context/SettingsContext";
 import api from "~/common/lib/api";
 import msg from "~/common/lib/msg";
@@ -19,14 +19,26 @@ interface AccountContextType {
     alias?: AccountInfo["alias"];
     balance?: AccountInfo["balance"];
     currency?: AccountInfo["currency"];
+    avatarUrl?: AccountInfo["avatarUrl"];
+    connectorType?: AccountInfo["connectorType"];
+    lightningAddress?: AccountInfo["lightningAddress"];
+    sharedNode?: AccountInfo["sharedNode"];
+    nodeRequired?: AccountInfo["nodeRequired"];
+    usingFeeCredits?: AccountInfo["usingFeeCredits"];
+    limits?: AccountInfo["limits"];
   } | null;
   balancesDecorated: {
     fiatBalance: string;
     accountBalance: string;
   };
-  loading: boolean;
+  // True while the account is being initialized for the first time after a page load
+  statusLoading: boolean;
+  // True while the account is being loaded (during account switches)
+  accountLoading: boolean;
   unlock: (user: string, callback: VoidFunction) => Promise<void>;
   lock: (callback: VoidFunction) => void;
+  selectAccount: (accountId: string) => void;
+
   /**
    * Set new id and clears current info, which causes a loading indicator for the alias/balance
    */
@@ -50,18 +62,17 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   } = useSettings();
 
   const [account, setAccount] = useState<AccountContextType["account"]>(null);
-  const [loading, setLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(true);
+  const [accountLoading, setAccountLoading] = useState(true);
   const [accountBalance, setAccountBalance] = useState("");
   const [fiatBalance, setFiatBalance] = useState("");
 
   const isSatsAccount = account?.currency === "BTC"; // show fiatValue only if the base currency is not already fiat
-  const showFiat =
-    !isLoadingSettings && settings.showFiat && !loading && isSatsAccount;
+  const showFiat = !isLoadingSettings && settings.showFiat && isSatsAccount;
 
   const unlock = (password: string, callback: VoidFunction) => {
     return api.unlock(password).then((response) => {
-      setAccountId(response.currentAccountId);
-      fetchAccountInfo({ accountId: response.currentAccountId });
+      selectAccount(response.currentAccountId, true);
 
       // callback - e.g. navigate to the requested route after unlocking
       callback();
@@ -103,8 +114,27 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     };
 
     const accountInfo = await api.swr.getAccountInfo(id, callback);
-
     return { ...accountInfo, fiatBalance, accountBalance };
+  };
+
+  const selectAccount = async (
+    accountId: string,
+    skipRequestSelectAccount = false
+  ) => {
+    setAccountLoading(true);
+
+    try {
+      if (!skipRequestSelectAccount) {
+        await msg.request("selectAccount", { id: accountId });
+      }
+      setAccountId(accountId);
+      await fetchAccountInfo({ accountId });
+    } catch (e) {
+      console.error(e);
+      if (e instanceof Error) toast.error(`Error: ${e.message}`);
+    } finally {
+      setAccountLoading(false);
+    }
   };
 
   // Invoked only on on mount.
@@ -117,22 +147,24 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         if (!response.configured && !onWelcomePage) {
           utils.openPage("welcome.html");
           window.close();
+        } else if (response.configured && onWelcomePage) {
+          utils.redirectPage("options.html");
         } else if (response.unlocked) {
-          if (response.configured && onWelcomePage) {
-            utils.redirectPage("options.html");
-          }
-          setAccountId(response.currentAccountId);
-          fetchAccountInfo({ accountId: response.currentAccountId });
+          selectAccount(response.currentAccountId, true);
         } else {
           setAccount(null);
         }
       })
       .catch((e) => {
         toast.error(`An unexpected error occurred (${e.message})`);
+        console.error(
+          `AccountContext: An unexpected error occurred (${e.message})`
+        );
       })
       .finally(() => {
-        setLoading(false);
+        setStatusLoading(false);
       });
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -159,8 +191,10 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       fiatBalance,
     },
     fetchAccountInfo,
-    loading,
+    statusLoading,
+    accountLoading,
     lock,
+    selectAccount,
     setAccountId,
     unlock,
   };

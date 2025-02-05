@@ -1,29 +1,26 @@
-import {
-  CaretLeftIcon,
-  CrossIcon,
-  QrCodeIcon,
-} from "@bitcoin-design/bitcoin-icons-react/filled";
 import Button from "@components/Button";
 import Container from "@components/Container";
 import Header from "@components/Header";
 import IconButton from "@components/IconButton";
-import QrcodeScanner from "@components/QrcodeScanner";
 import TextField from "@components/form/TextField";
-import lightningPayReq from "bolt11";
+import { PopiconsChevronLeftLine } from "@popicons/react";
+import lightningPayReq from "bolt11-signet";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { useLocation, useNavigate } from "react-router-dom";
+import QrcodeAdornment from "~/app/components/QrcodeAdornment";
+import toast from "~/app/components/Toast";
+import { extractLightningTagData, isBitcoinAddress } from "~/app/utils";
 import lnurlLib from "~/common/lib/lnurl";
 import { isLNURLDetailsError } from "~/common/utils/typeHelpers";
 
 function Send() {
   const { t } = useTranslation("translation", { keyPrefix: "send" });
   const { t: tCommon } = useTranslation("common");
-
-  const [invoice, setInvoice] = useState("");
+  const location = useLocation();
+  // location.state used to access the decoded QR coming from ScanQRCode screen
+  const [invoice, setInvoice] = useState(location.state?.decodedQR || "");
   const navigate = useNavigate();
-  const [qrIsOpen, setQrIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   function isPubKey(str: string) {
@@ -36,8 +33,15 @@ function Send() {
       setLoading(true);
 
       let lnurl = lnurlLib.findLnurl(invoice);
-      if (!lnurl && lnurlLib.isLightningAddress(invoice)) {
+
+      if (lnurlLib.isLightningAddress(invoice)) {
         lnurl = invoice;
+      }
+
+      if (lnurl?.endsWith("phoenixwallet.me")) {
+        throw new Error(
+          "Paying Phoenix addresses is not possible. Phoenix is not compatible with the current state of lightning addresses as they use a different protocol."
+        );
       }
 
       if (lnurl) {
@@ -94,6 +98,10 @@ function Send() {
             },
           },
         });
+      } else if (isBitcoinAddress(invoice)) {
+        navigate("/sendToBitcoinAddress", {
+          state: { args: { bitcoinAddress: invoice } },
+        });
       } else {
         lightningPayReq.decode(invoice); // throws if invalid.
         navigate("/confirmPayment", {
@@ -113,83 +121,35 @@ function Send() {
     }
   }
 
-  function extractInvoiceFrom(data: string) {
-    const reqExp = /lightning=([^&|\b]+)/i;
-
-    const invoice = data.match(reqExp);
-
-    if (invoice) {
-      return invoice[1];
-    } else {
-      return data.replace(/^lightning:/i, "");
-    }
-  }
-
-  if (qrIsOpen) {
-    return (
-      <div>
-        <Header
-          title={t("qrcode.title")}
-          headerRight={
-            <IconButton
-              onClick={() => setQrIsOpen(false)}
-              icon={<CrossIcon className="w-4 h-4" />}
-            />
-          }
-        />
-        <Container maxWidth="sm">
-          <QrcodeScanner
-            qrbox={200}
-            qrCodeSuccessCallback={(decodedText) => {
-              if (invoice !== decodedText) {
-                setInvoice(extractInvoiceFrom(decodedText));
-                setQrIsOpen(false);
-              }
-            }}
-            qrCodeErrorCallback={console.error}
-          />
-        </Container>
-      </div>
-    );
-  }
-
   return (
     <div className="h-full flex flex-col overflow-y-auto no-scrollbar">
       <Header
-        title={t("title")}
         headerLeft={
           <IconButton
-            onClick={() => navigate("/")}
-            icon={<CaretLeftIcon className="w-4 h-4" />}
+            onClick={() => navigate(-1)}
+            icon={<PopiconsChevronLeftLine className="w-5 h-5" />}
           />
         }
-      />
+      >
+        {t("title")}
+      </Header>
       <form onSubmit={handleSubmit} className="h-full">
         <Container justifyBetween maxWidth="sm">
           <div className="pt-4">
             <TextField
               id="invoice"
               label={t("input.label")}
-              hint={t("input.hint")}
+              hint={t("input.hint_with_bitcoin_address")}
               value={invoice}
               disabled={loading}
               autoFocus
               onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                setInvoice(extractInvoiceFrom(event.target.value.trim()))
+                setInvoice(extractLightningTagData(event.target.value.trim()))
               }
-              endAdornment={
-                <button
-                  aria-label="Scan QR"
-                  type="button"
-                  className="flex justify-center items-center w-10 h-8"
-                  onClick={() => setQrIsOpen(true)}
-                >
-                  <QrCodeIcon className="h-6 w-6 text-blue-500" />
-                </button>
-              }
+              endAdornment={<QrcodeAdornment route="send" />}
             />
           </div>
-          <div className="my-4">
+          <div className="mt-4">
             <Button
               type="submit"
               label={tCommon("actions.continue")}

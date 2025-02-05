@@ -5,8 +5,10 @@ import ConnectionErrorToast from "@components/toasts/ConnectionErrorToast";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import toast from "~/app/components/Toast";
 import msg from "~/common/lib/msg";
+
+import logo from "/static/assets/icons/lnbits.png";
 
 export default function ConnectLnbits() {
   const navigate = useNavigate();
@@ -85,7 +87,7 @@ export default function ConnectLnbits() {
   return (
     <ConnectorForm
       title={
-        <h1 className="mb-6 text-2xl font-bold dark:text-white">
+        <h1 className="text-2xl font-bold dark:text-white">
           <Trans
             i18nKey={"page.title"}
             t={t}
@@ -97,6 +99,7 @@ export default function ConnectLnbits() {
         </h1>
       }
       description={t("page.instructions")}
+      logo={logo}
       submitLoading={loading}
       submitDisabled={formData.adminkey === "" || formData.url === ""}
       onSubmit={handleSubmit}
@@ -106,26 +109,23 @@ export default function ConnectLnbits() {
           id="adminkey"
           label={t("admin_key.label")}
           placeholder={t("admin_key.placeholder")}
-          type="text"
           required
           onChange={handleChange}
+          autoFocus={true}
         />
       </div>
-      <div className="mb-6">
-        <TextField
-          id="url"
-          label={t("url.label")}
-          type="text"
-          value={formData.url}
-          required
-          onChange={handleChange}
-        />
-      </div>
+      <TextField
+        id="url"
+        label={t("url.label")}
+        value={formData.url}
+        required
+        onChange={handleChange}
+      />
       {formData.url.match(/\.onion/i) && (
-        <div className="mb-6">
+        <div className="mt-6">
           <CompanionDownloadInfo
-            hasTorCallback={() => {
-              setHasTorSupport(true);
+            hasTorCallback={(hasTor: boolean) => {
+              setHasTorSupport(hasTor);
             }}
           />
         </div>

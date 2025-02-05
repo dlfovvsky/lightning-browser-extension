@@ -1,14 +1,16 @@
-import { SendIcon } from "@bitcoin-design/bitcoin-icons-react/filled";
 import CompanionDownloadInfo from "@components/CompanionDownloadInfo";
 import ConnectorForm from "@components/ConnectorForm";
 import TextField from "@components/form/TextField";
 import ConnectionErrorToast from "@components/toasts/ConnectionErrorToast";
+import { PopiconsShareLine } from "@popicons/react";
 import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import PasswordViewAdornment from "~/app/components/PasswordViewAdornment";
+import toast from "~/app/components/Toast";
 import msg from "~/common/lib/msg";
 import utils from "~/common/lib/utils";
+import logo from "/static/assets/icons/lnd.png";
 
 const initialFormData = {
   url: "",
@@ -20,11 +22,13 @@ export default function ConnectLnd() {
   const { t } = useTranslation("translation", {
     keyPrefix: "choose_connector.lnd",
   });
+  const { t: tCommon } = useTranslation("common");
   const [formData, setFormData] = useState(initialFormData);
   const [isDragging, setDragging] = useState(false);
   const hiddenFileInput = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [hasTorSupport, setHasTorSupport] = useState(false);
+  const [macaroonVisible, setMacaroonVisible] = useState(false);
 
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     setFormData({
@@ -77,7 +81,8 @@ export default function ConnectLnd() {
             message={validation.error as string}
             link={formData.url}
           />,
-          { autoClose: false }
+          // Don't auto-close
+          { duration: 100_000 }
         );
       }
     } catch (e) {
@@ -142,6 +147,7 @@ export default function ConnectLnd() {
     <ConnectorForm
       title={t("page.title")}
       description={t("page.description")}
+      logo={logo}
       submitLoading={loading}
       submitDisabled={formData.url === "" || formData.macaroon === ""}
       onSubmit={handleSubmit}
@@ -155,13 +161,14 @@ export default function ConnectLnd() {
           title={t("url.placeholder")}
           onChange={handleChange}
           required
+          autoFocus={true}
         />
       </div>
       {formData.url.match(/\.onion/i) && (
         <div className="mb-6">
           <CompanionDownloadInfo
-            hasTorCallback={() => {
-              setHasTorSupport(true);
+            hasTorCallback={(hasTor: boolean) => {
+              setHasTorSupport(hasTor);
             }}
           />
         </div>
@@ -170,16 +177,25 @@ export default function ConnectLnd() {
         <div>
           <TextField
             id="macaroon"
+            type={macaroonVisible ? "text" : "password"}
+            autoComplete="new-password"
             label={t("macaroon.label")}
             value={formData.macaroon}
             onChange={handleChange}
             required
+            endAdornment={
+              <PasswordViewAdornment
+                onChange={(passwordView) => {
+                  setMacaroonVisible(passwordView);
+                }}
+              />
+            }
           />
         </div>
-        <p className="text-center my-4 dark:text-white">{t("or")}</p>
+        <p className="text-center my-6 dark:text-white">{tCommon("or")}</p>
         <div
           className={`cursor-pointer flex flex-col items-center dark:bg-surface-02dp p-4 py-3 border-dashed border-2 border-gray-300 bg-gray-50 rounded-md text-center transition duration-200 ${
-            isDragging ? "border-blue-500 bg-blue-50" : ""
+            isDragging ? "border-blue-600 bg-blue-50" : ""
           }`}
           onDrop={dropHandler}
           onDragOver={dragOverHandler}
@@ -188,7 +204,7 @@ export default function ConnectLnd() {
             if (hiddenFileInput?.current) hiddenFileInput.current.click();
           }}
         >
-          <SendIcon className="mb-3 h-6 w-6 text-blue-500" />
+          <PopiconsShareLine className="mb-3 h-6 w-6 text-blue-600 hover:text-blue-700" />
           <p className="dark:text-white">
             <Trans
               i18nKey={"drag_and_drop"}

@@ -1,4 +1,10 @@
+import {
+  CreateSwapParams,
+  CreateSwapResponse,
+  SwapInfoResponse,
+} from "@getalby/sdk/dist/types";
 import { ACCOUNT_CURRENCIES } from "~/common/constants";
+import { OAuthToken } from "~/types";
 
 export interface WebLNNode {
   alias: string;
@@ -11,19 +17,26 @@ interface Route {
   total_fees: number;
 }
 
-export interface ConnectorInvoice {
+export interface ConnectorTransaction {
   custom_records?: {
-    "696969": string;
-    "7629169": string;
-    "5482373484": string;
-  };
+    "696969"?: string;
+    "7629169"?: string;
+    "5482373484"?: string;
+  } & Record<string, string>;
   id: string;
-  memo: string;
+  memo?: string;
   preimage: string;
+  payment_hash?: string;
   settled: boolean;
-  settleDate: number;
-  totalAmount: string;
-  type: "received";
+  /**
+   * Settle date in UNIX milliseconds
+   */
+  settleDate: number | null;
+  creationDate: number;
+  totalAmount: number;
+  displayAmount?: [number, ACCOUNT_CURRENCIES];
+  type: "received" | "sent";
+  state?: "settled" | "pending" | "failed";
 }
 
 export interface MakeInvoiceArgs {
@@ -38,8 +51,8 @@ export type MakeInvoiceResponse = {
   };
 };
 
-export type GetInfoResponse = {
-  data: WebLNNode;
+export type GetInfoResponse<T extends WebLNNode = WebLNNode> = {
+  data: T;
 };
 
 export type GetBalanceResponse = {
@@ -49,9 +62,15 @@ export type GetBalanceResponse = {
   };
 };
 
-export type GetInvoicesResponse = {
+export type GetTransactionsResponse = {
   data: {
-    invoices: ConnectorInvoice[];
+    transactions: ConnectorTransaction[];
+  };
+};
+
+export type GetPaymentsResponse = {
+  data: {
+    payments: ConnectorTransaction[];
   };
 };
 
@@ -60,8 +79,12 @@ export type SendPaymentResponse = {
     preimage: string;
     paymentHash: string;
     route: Route;
-    payment_error?: string;
   };
+};
+
+export type SendPaymentAsyncResponse = {
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  data: {};
 };
 
 export interface SendPaymentArgs {
@@ -114,7 +137,7 @@ export default interface Connector {
   unload(): Promise<void>;
   getInfo(): Promise<GetInfoResponse>;
   getBalance(): Promise<GetBalanceResponse>;
-  getInvoices(): Promise<GetInvoicesResponse>;
+  getTransactions(): Promise<GetTransactionsResponse>;
   makeInvoice(args: MakeInvoiceArgs): Promise<MakeInvoiceResponse>;
   sendPayment(args: SendPaymentArgs): Promise<SendPaymentResponse>;
   keysend(args: KeysendArgs): Promise<SendPaymentResponse>;
@@ -126,4 +149,11 @@ export default interface Connector {
     method: string,
     args: Record<string, unknown>
   ): Promise<{ data: unknown }>;
+  getOAuthToken?(): OAuthToken | undefined;
+  getSwapInfo?(): Promise<SwapInfoResponse>;
+  createSwap?(params: CreateSwapParams): Promise<CreateSwapResponse>;
+}
+
+export function flattenRequestMethods(methods: string[]) {
+  return methods.map((method) => `request.${method}`);
 }

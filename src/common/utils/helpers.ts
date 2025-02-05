@@ -1,5 +1,7 @@
 import * as secp256k1 from "@noble/secp256k1";
 import { bech32 } from "bech32";
+import { ConnectorTransaction } from "~/extension/background-script/connectors/connector.interface";
+import { Sender } from "~/types";
 
 export function bech32Decode(str: string, encoding: BufferEncoding = "utf-8") {
   const { words: dataPart } = bech32.decode(str, 2000);
@@ -8,9 +10,20 @@ export function bech32Decode(str: string, encoding: BufferEncoding = "utf-8") {
 }
 
 export function bech32Encode(prefix: string, hex: string) {
-  const data = secp256k1.utils.hexToBytes(hex);
+  const data = secp256k1.etc.hexToBytes(hex);
   const words = bech32.toWords(data);
   return bech32.encode(prefix, words, 1000);
+}
+
+export function getHostFromSender(sender: Sender) {
+  // see https://github.com/uBlockOrigin/uBlock-issues/issues/1992
+  // If present, use MessageSender.origin to determine whether the port is
+  // from a privileged page, otherwise use MessageSender.url
+  // MessageSender.origin is more reliable as it is not spoofable by a
+  // compromised renderer.
+  if (sender.origin) return new URL(sender.origin).host;
+  else if (sender.url) return new URL(sender.url).host;
+  else return null;
 }
 
 export async function poll<T>({
@@ -48,4 +61,15 @@ export async function poll<T>({
   };
 
   return new Promise(executePoll);
+}
+
+export function mergeTransactions(
+  invoices: ConnectorTransaction[],
+  payments: ConnectorTransaction[]
+): ConnectorTransaction[] {
+  const mergedTransactions = [...invoices, ...payments].sort((a, b) => {
+    return (b.settleDate ?? 0) - (a.settleDate ?? 0);
+  });
+
+  return mergedTransactions;
 }

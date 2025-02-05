@@ -1,8 +1,8 @@
-import { QrCodeIcon } from "@bitcoin-design/bitcoin-icons-react/filled";
+import { PopiconsQrCodeMinimalLine } from "@popicons/react";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "react-toastify";
+import toast from "~/app/components/Toast";
 
 import Button from "../Button";
 
@@ -116,7 +116,7 @@ function QrcodeScanner({
   }
 
   return (
-    <div className="mt-5 shadow-sm bg-white rounded-md border border-gray-300 flex flex-col items-center dark:bg-surface-02dp p-3">
+    <div className="mt-5 shadow-sm bg-white rounded-md flex flex-col items-center dark:bg-surface-02dp p-3">
       {!isScanning && (
         <>
           <div className="flex justify-center text-center items-center">
@@ -125,11 +125,12 @@ function QrcodeScanner({
                 {t("title")}
               </h4>
               <Button
+                primary
                 label={t("actions.start_scanning")}
                 onClick={handleRequestCameraPermissions}
               />
             </div>
-            <QrCodeIcon className="h-28 w-28 ml-4 -mr-8 text-blue-500" />
+            <PopiconsQrCodeMinimalLine className="h-28 w-28 ml-4 -mr-8 text-blue-600" />
           </div>
         </>
       )}

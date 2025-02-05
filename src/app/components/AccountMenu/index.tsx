@@ -1,18 +1,17 @@
 import {
-  AddressBookIcon,
-  CaretDownIcon,
-  CheckIcon,
-  PlusIcon,
-} from "@bitcoin-design/bitcoin-icons-react/filled";
-import { useEffect, useState } from "react";
+  PopiconsChevronBottomLine,
+  PopiconsGlobeLine,
+  PopiconsPlusLine,
+  PopiconsSettingsMinimalLine,
+} from "@popicons/react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import Skeleton from "react-loading-skeleton";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import Avatar from "~/app/components/Avatar";
+import SkeletonLoader from "~/app/components/SkeletonLoader";
 import { useAccount } from "~/app/context/AccountContext";
 import { useAccounts } from "~/app/context/AccountsContext";
-import msg from "~/common/lib/msg";
+import { isAlbyLNDHubAccount, isAlbyOAuthAccount } from "~/app/utils";
 import utils from "~/common/lib/utils";
 
 import Menu from "../Menu";
@@ -23,43 +22,27 @@ export type Props = {
 
 function AccountMenu({ showOptions = true }: Props) {
   const { t } = useTranslation("components", { keyPrefix: "account_menu" });
+  const { t: tCommon } = useTranslation("common");
 
   const {
-    setAccountId,
-    fetchAccountInfo,
+    selectAccount,
     account: authAccount,
     balancesDecorated,
+    accountLoading,
   } = useAccount();
   const navigate = useNavigate();
   const { accounts, getAccounts } = useAccounts();
-  const [loading, setLoading] = useState(false);
 
   // update title
   const title =
     !!authAccount?.name &&
     typeof authAccount?.name === "string" &&
-    `${authAccount?.name} - ${authAccount?.alias}`;
+    `${authAccount?.name}`;
 
   useEffect(() => {
     getAccounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  async function selectAccount(accountId: string) {
-    setLoading(true);
-    try {
-      setAccountId(accountId);
-      await msg.request("selectAccount", {
-        id: accountId,
-      });
-      await fetchAccountInfo({ accountId });
-    } catch (e) {
-      console.error(e);
-      if (e instanceof Error) toast.error(`Error: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function openOptions(path: string) {
     // if we are in the popup
@@ -73,76 +56,134 @@ function AccountMenu({ showOptions = true }: Props) {
   }
 
   return (
-    <div className="relative pl-2 w-72 flex bg-gray-100 rounded-md dark:bg-surface-12dp">
-      <div className="flex items-center">
-        <Avatar size={32} name={authAccount?.name || ""} />
-      </div>
-
-      <div
-        className={`flex-auto mx-2 py-1 overflow-hidden ${
-          !title && !balancesDecorated ? "w-28" : ""
-        }`}
-      >
-        <p
-          title={title || ""}
-          className="text-xs text-gray-700 dark:text-neutral-400 text-ellipsis overflow-hidden whitespace-nowrap"
-        >
-          {title || <Skeleton />}
-        </p>
-
-        {balancesDecorated.accountBalance ? (
-          <p className="flex justify-between">
-            <span className="text-xs dark:text-white">
-              {balancesDecorated.accountBalance}
-            </span>
-            {!!balancesDecorated.fiatBalance && (
-              <span className="text-xs text-gray-600 dark:text-neutral-400 ml-2">
-                ~{balancesDecorated.fiatBalance}
-              </span>
-            )}
-          </p>
-        ) : (
-          <Skeleton />
-        )}
-      </div>
-
+    <div className="relative flex justify-end w-80 text-gray-800 dark:text-neutral-200">
       <Menu as="div">
-        <Menu.Button className="h-full px-2 rounded-r-md hover:bg-gray-200 dark:hover:bg-white/10 transition-colors duration-200">
-          <CaretDownIcon className="h-4 w-4 dark:text-white" />
-          <span className="sr-only">{t("screen_reader")}</span>
-        </Menu.Button>
-
-        <Menu.List position="left" fullWidth>
-          <Menu.Subheader>{t("title")}</Menu.Subheader>
-
-          {Object.keys(accounts).map((accountId) => {
-            const account = accounts[accountId];
-            return (
-              <Menu.ItemButton
-                key={accountId}
-                onClick={() => {
-                  selectAccount(accountId);
-                }}
-                disabled={loading}
-                title={account.name}
+        <Menu.Button className="h-full px-2 rounded-md hover:bg-gray-100 dark:hover:bg-white/10 transition-colors duration-200">
+          <div className="flex items-center">
+            {accountLoading ? (
+              <SkeletonLoader
+                className="rounded-full w-6 h-6 overflow-hidden"
+                containerClassName="inline-flex"
+              />
+            ) : (
+              <Avatar
+                size={24}
+                url={authAccount?.avatarUrl}
+                name={authAccount?.id || ""}
+              />
+            )}
+            <div
+              className={`flex-auto mx-2 py-3 overflow-hidden max-w-[10rem] text-left`}
+            >
+              <div
+                title={title || ""}
+                className="text-sm font-medium text-ellipsis overflow-hidden whitespace-nowrap"
               >
-                <div className="shrink-0">
-                  <Avatar size={32} name={account.name} />
-                </div>
-                <span className="overflow-hidden text-ellipsis whitespace-nowrap ml-2">
-                  {account.name}&nbsp;
-                </span>
-                {accountId === authAccount?.id && (
-                  <span
-                    data-testid="selected"
-                    className="ml-auto flex-shrink-0 w-3.5 h-3.5 rounded-full bg-orange-bitcoin flex justify-center items-center"
-                  >
-                    <CheckIcon className="w-3 h-3 text-white" />
-                  </span>
+                {accountLoading ? (
+                  <SkeletonLoader className="w-20" />
+                ) : (
+                  title || "⚠️"
                 )}
-              </Menu.ItemButton>
-            );
-          })}
+              </div>
+            </div>
+            <PopiconsChevronBottomLine className="h-4 w-4" />
+            <span className="sr-only">{t("screen_reader")}</span>
+          </div>
+        </Menu.Button>
+        <Menu.List position="right" fullWidth>
+          {authAccount && (
+            <Menu.Item>
+              <div className="p-2 overflow-hidden">
+                <div className="flex flex-row items-center justify-between gap-2 bg-amber-50 dark:bg-brand-yellow/50 border-brand-yellow border-l-4 p-2 rounded-lg">
+                  <div className="flex flex-row items-center gap-2 overflow-hidden">
+                    <div className="shrink-0">
+                      <Avatar
+                        size={24}
+                        name={authAccount.id}
+                        url={authAccount.avatarUrl}
+                      />
+                    </div>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="overflow-hidden text-ellipsis whitespace-nowrap font-medium">
+                        {authAccount.name}
+                      </span>
+                      <span className="dark:text-white text-xs">
+                        {accountLoading ? (
+                          <SkeletonLoader className="w-16" />
+                        ) : (
+                          balancesDecorated.accountBalance
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-row gap-1 items-center">
+                    {(isAlbyLNDHubAccount(
+                      authAccount.alias,
+                      authAccount.connectorType
+                    ) ||
+                      isAlbyOAuthAccount(authAccount.connectorType)) && (
+                      <a
+                        className="cursor-pointer text-gray-600 dark:text-neutral-400 hover:text-gray-400 dark:hover:text-neutral-600"
+                        onClick={() => {
+                          window.open(`https://getalby.com/user`, "_blank");
+                        }}
+                        title={t("options.account.go_to_web_wallet")}
+                      >
+                        <PopiconsGlobeLine className="w-4 h-4 mr-2 shrink-0" />
+                      </a>
+                    )}
+                    <a
+                      className="cursor-pointer text-gray-600 dark:text-neutral-400 hover:text-gray-400 dark:hover:text-neutral-600"
+                      title={tCommon("wallet_settings")}
+                      onClick={() => {
+                        openOptions(`accounts/${authAccount.id}`);
+                      }}
+                    >
+                      <PopiconsSettingsMinimalLine className="w-4 h-4 mr-2 shrink-0" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </Menu.Item>
+          )}
+          {Object.keys(accounts).length > 1 && (
+            <>
+              {Object.keys(accounts).map((accountId) => {
+                // Do not render the current active account
+                if (accountId === authAccount?.id) {
+                  return;
+                }
+
+                const account = accounts[accountId];
+                return (
+                  <Menu.ItemButton
+                    key={accountId}
+                    onClick={() => {
+                      selectAccount(accountId);
+                      if (window.location.pathname !== "/prompt.html") {
+                        navigate("/");
+                      }
+                    }}
+                    disabled={accountLoading}
+                    title={account.name}
+                  >
+                    <div className="flex flex-row w-full items-center">
+                      <div className="shrink-0">
+                        <Avatar
+                          size={24}
+                          name={account.id}
+                          url={account.avatarUrl}
+                        />
+                      </div>
+                      <span className="overflow-hidden text-ellipsis whitespace-nowrap ml-2">
+                        {account.name}
+                      </span>
+                    </div>
+                  </Menu.ItemButton>
+                );
+              })}
+            </>
+          )}
 
           {showOptions && (
             <>
@@ -152,16 +193,8 @@ function AccountMenu({ showOptions = true }: Props) {
                   openOptions("accounts/new");
                 }}
               >
-                <PlusIcon className="h-5 w-5 mr-2 text-gray-700 dark:text-neutral-300" />
+                <PopiconsPlusLine className="h-4 w-4 mr-2 shrink-0" />
                 {t("options.account.add")}
-              </Menu.ItemButton>
-              <Menu.ItemButton
-                onClick={() => {
-                  openOptions("accounts");
-                }}
-              >
-                <AddressBookIcon className="h-5 w-5 mr-2 text-gray-700 dark:text-neutral-300" />
-                {t("options.account.manage")}
               </Menu.ItemButton>
             </>
           )}

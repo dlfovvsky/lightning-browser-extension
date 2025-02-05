@@ -1,17 +1,19 @@
-import {
-  HiddenIcon,
-  VisibleIcon,
-} from "@bitcoin-design/bitcoin-icons-react/outline";
-import Button from "@components/Button";
 import ConnectorForm from "@components/ConnectorForm";
 import TextField from "@components/form/TextField";
 import ConnectionErrorToast from "@components/toasts/ConnectionErrorToast";
 import * as secp256k1 from "@noble/secp256k1";
+import {
+  PopiconsChevronBottomLine,
+  PopiconsChevronTopLine,
+} from "@popicons/react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import Hyperlink from "~/app/components/Hyperlink";
+import PasswordViewAdornment from "~/app/components/PasswordViewAdornment";
+import toast from "~/app/components/Toast";
 import msg from "~/common/lib/msg";
+import logo from "/static/assets/icons/core_ln.svg";
 
 export default function ConnectCommando() {
   const navigate = useNavigate();
@@ -45,7 +47,7 @@ export default function ConnectCommando() {
 
   function generateCommandoPrivateKey(): string {
     const privKey = secp256k1.utils.randomPrivateKey();
-    return secp256k1.utils.bytesToHex(privKey);
+    return secp256k1.etc.bytesToHex(privKey);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -101,6 +103,7 @@ export default function ConnectCommando() {
     <ConnectorForm
       title={t("page.title")}
       description={t("page.instructions")}
+      logo={logo}
       submitLoading={loading}
       submitDisabled={
         formData.host === "" && formData.pubkey === "" && formData.rune === ""
@@ -111,19 +114,18 @@ export default function ConnectCommando() {
         <TextField
           id="host"
           label={t("host.label")}
-          type="text"
           required
           placeholder="0.0.0.0"
           title="host"
           value={formData.host}
           onChange={handleChange}
+          autoFocus={true}
         />
       </div>
       <div className="mb-6">
         <TextField
           id="pubkey"
           label={t("pubkey.label")}
-          type="text"
           required
           placeholder="02...."
           title="pubkey"
@@ -135,7 +137,6 @@ export default function ConnectCommando() {
         <TextField
           id="rune"
           label={t("rune.label")}
-          type="text"
           required
           placeholder=""
           title="rune"
@@ -154,19 +155,28 @@ export default function ConnectCommando() {
           onChange={handleChange}
         />
       </div>
-      <Button
-        onClick={() => {
-          setShowAdvanced(!showAdvanced);
-        }}
-        label={tCommon("advanced")}
-      />
+
+      <div className="text-center">
+        <Hyperlink onClick={() => setShowAdvanced(!showAdvanced)}>
+          {showAdvanced ? (
+            <>
+              {tCommon("hide_advanced")}
+              <PopiconsChevronTopLine className="h-4 w-4 inline-flex" />
+            </>
+          ) : (
+            <>
+              {tCommon("advanced")}
+              <PopiconsChevronBottomLine className="h-4 w-4 inline-flex" />
+            </>
+          )}
+        </Hyperlink>
+      </div>
       {showAdvanced && (
         <div className="mt-6">
           <div className="mb-6">
             <TextField
               id="proxy"
               label={t("proxy.label")}
-              type="text"
               placeholder="proxy"
               required
               title="proxy"
@@ -174,30 +184,20 @@ export default function ConnectCommando() {
               onChange={handleChange}
             />
           </div>
-          <div className="mb-6">
-            <TextField
-              id="commandoPrivateKey"
-              label={t("privKey.label")}
-              type={commandoPrivateKeyVisible ? "text" : "password"}
-              value={formData.privateKey}
-              endAdornment={
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  className="flex justify-center items-center w-10 h-8"
-                  onClick={() => {
-                    setCommandoPrivateKeyVisible(!commandoPrivateKeyVisible);
-                  }}
-                >
-                  {commandoPrivateKeyVisible ? (
-                    <HiddenIcon className="h-6 w-6" />
-                  ) : (
-                    <VisibleIcon className="h-6 w-6" />
-                  )}
-                </button>
-              }
-            />
-          </div>
+          <TextField
+            id="commandoPrivateKey"
+            label={t("privKey.label")}
+            type={commandoPrivateKeyVisible ? "text" : "password"}
+            autoComplete="new-password"
+            value={formData.privateKey}
+            endAdornment={
+              <PasswordViewAdornment
+                onChange={(passwordView) => {
+                  setCommandoPrivateKeyVisible(passwordView);
+                }}
+              />
+            }
+          />
         </div>
       )}
     </ConnectorForm>

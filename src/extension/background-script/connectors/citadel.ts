@@ -1,17 +1,19 @@
+import { Account } from "~/types";
+
 import Connector, {
-  ConnectPeerResponse,
-  SendPaymentArgs,
-  SendPaymentResponse,
-  GetInfoResponse,
-  GetBalanceResponse,
-  GetInvoicesResponse,
-  MakeInvoiceArgs,
-  MakeInvoiceResponse,
-  SignMessageArgs,
-  SignMessageResponse,
   CheckPaymentArgs,
   CheckPaymentResponse,
+  ConnectPeerResponse,
+  GetBalanceResponse,
+  GetInfoResponse,
+  GetTransactionsResponse,
   KeysendArgs,
+  MakeInvoiceArgs,
+  MakeInvoiceResponse,
+  SendPaymentArgs,
+  SendPaymentResponse,
+  SignMessageArgs,
+  SignMessageResponse,
 } from "./connector.interface";
 
 interface Config {
@@ -27,10 +29,12 @@ type RequestFunction = <ResponseType = unknown>(
 ) => Promise<ResponseType>;
 
 class CitadelConnector implements Connector {
+  account: Account;
   config: Config;
   jwt: string;
 
-  constructor(config: Config) {
+  constructor(account: Account, config: Config) {
+    this.account = account;
     this.config = config;
     this.jwt = "";
   }
@@ -49,7 +53,14 @@ class CitadelConnector implements Connector {
   }
 
   get supportedMethods() {
-    return ["makeInvoice", "sendPayment", "signMessage", "getInfo"];
+    return [
+      "makeInvoice",
+      "sendPayment",
+      "sendPaymentAsync",
+      "signMessage",
+      "getInfo",
+      "getBalance",
+    ];
   }
 
   async getInfo(): Promise<GetInfoResponse> {
@@ -65,14 +76,11 @@ class CitadelConnector implements Connector {
     });
   }
 
-  // not yet implemented
-  async getInvoices(): Promise<GetInvoicesResponse> {
+  async getTransactions(): Promise<GetTransactionsResponse> {
     console.error(
-      `Not yet supported with the currently used account: ${this.constructor.name}`
+      `getTransactions() is not yet supported with the currently used account: ${this.constructor.name}`
     );
-    throw new Error(
-      `${this.constructor.name}: "getInvoices" is not yet supported. Contact us if you need it.`
-    );
+    return { data: { transactions: [] } };
   }
 
   // not yet implemented

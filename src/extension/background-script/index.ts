@@ -1,9 +1,10 @@
 import browser, { Runtime, Tabs } from "webextension-polyfill";
 import utils from "~/common/lib/utils";
 
+import { isManifestV3 } from "~/common/utils/mv3";
+import { registerInPageContentScript } from "~/extension/background-script/registerContentScript";
 import { ExtensionIcon, setIcon } from "./actions/setup/setIcon";
-import connectors from "./connectors";
-import { isIndexedDbAvailable, db } from "./db";
+import { db, isIndexedDbAvailable } from "./db";
 import * as events from "./events";
 import migrate from "./migrations";
 import { router } from "./router";
@@ -11,6 +12,13 @@ import state from "./state";
 
 let isFirstInstalled = false;
 let isRecentlyUpdated = false;
+const {
+  promise: isInitialized,
+  resolve: resolveInit,
+  reject: rejectInit,
+} = utils.deferredPromise();
+
+const debug = process.env.NODE_ENV === "development";
 
 // when debugging is enabled in development mode a window.debugAlby object is defined that can be used within the console. This is the type interface for that
 declare global {
@@ -34,6 +42,7 @@ const extractLightningData = (
     // Adding a short delay because I've seen cases where this call has happened too fast
     // before the receiving side in the content-script was connected/listening
     setTimeout(() => {
+      // double check: https://developer.chrome.com/docs/extensions/mv3/migrating_to_service_workers/#alarms
       browser.tabs.sendMessage(tabId, {
         action: "extractLightningData",
       });
@@ -64,7 +73,7 @@ const updateIcon = async (
 };
 
 const debugLogger = (message: unknown, sender: Runtime.MessageSender) => {
-  if (state.getState().settings.debug) {
+  if (debug) {
     console.info("Background onMessage: ", message, sender);
   }
 };
@@ -83,7 +92,7 @@ const handleInstalled = (details: { reason: string }) => {
 
 // listen to calls from the content script and calls the actions through the router
 // returns a promise to be handled in the content script
-const routeCalls = (
+const routeCalls = async (
   message: {
     application: string;
     prompt: boolean;
@@ -96,11 +105,10 @@ const routeCalls = (
   if (message.application !== "LBE" || !message.prompt) {
     return;
   }
-  const debug = state.getState().settings.debug;
-
   if (message.type) {
     console.error("Invalid message, using type: ", message);
   }
+  await isInitialized;
   const action = message.action || message.type;
   console.info(`Routing call: ${action}`);
   // Potentially check for internal vs. public calls
@@ -113,13 +121,30 @@ const routeCalls = (
       return r;
     });
   }
-  return call;
+  const result = await call;
+  return result;
 };
+
+browser.runtime.onMessage.addListener(debugLogger);
+
+// this is the only handler that may and must return a Promise which resolve with the response to the content script
+browser.runtime.onMessage.addListener(routeCalls);
+
+// Update the extension icon
+browser.tabs.onUpdated.addListener(updateIcon);
+
+// Notify the content script that the tab has been updated.
+browser.tabs.onUpdated.addListener(extractLightningData);
+
+// The onInstalled event is fired directly after the code is loaded.
+// When we subscribe to that event asynchronously in the init() function it is too late and we miss the event.
+browser.runtime.onInstalled.addListener(handleInstalled);
 
 async function init() {
   console.info("Loading background script");
 
-  //await browser.storage.sync.set({ settings: { debug: true }, allowances: [] });
+  if (isManifestV3) registerInPageContentScript();
+
   await state.getState().init();
   console.info("State loaded");
 
@@ -135,42 +160,28 @@ async function init() {
 
   events.subscribe();
   console.info("Events subscribed");
-
-  browser.runtime.onMessage.addListener(debugLogger);
-
-  // this is the only handler that may and must return a Promise which resolve with the response to the content script
-  browser.runtime.onMessage.addListener(routeCalls);
-
-  // Update the extension icon
-  browser.tabs.onUpdated.addListener(updateIcon);
-
-  // Notify the content script that the tab has been updated.
-  browser.tabs.onUpdated.addListener(extractLightningData);
-
-  if (state.getState().settings.debug) {
-    console.info("Debug mode enabled, use window.debugAlby");
-    window.debugAlby = {
-      state,
-      db,
-      connectors,
-      router,
-    };
+  if (isRecentlyUpdated) {
+    console.info("Running any pending migrations");
+    await migrate();
   }
   console.info("Loading completed");
 }
 
-// The onInstalled event is fired directly after the code is loaded.
-// When we subscribe to that event asynchronously in the init() function it is too late and we miss the event.
-browser.runtime.onInstalled.addListener(handleInstalled);
-
 console.info("Welcome to Alby");
-init().then(() => {
-  if (isFirstInstalled && !state.getState().getAccount()) {
-    utils.openUrl("welcome.html");
-  }
-  if (isRecentlyUpdated) {
-    migrate();
-  }
-});
+init()
+  .then(() => {
+    if (resolveInit) {
+      resolveInit();
+    }
+    if (isFirstInstalled && !state.getState().getAccount()) {
+      utils.openUrl("welcome.html");
+    }
+  })
+  .catch((err) => {
+    console.error(err);
+    if (rejectInit) {
+      rejectInit();
+    }
+  });
 
 browser.runtime.setUninstallURL("https://getalby.com/goodbye");

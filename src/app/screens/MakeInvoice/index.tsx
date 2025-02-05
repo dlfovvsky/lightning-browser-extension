@@ -7,6 +7,7 @@ import TextField from "@components/form/TextField";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ScreenHeader from "~/app/components/ScreenHeader";
+import toast from "~/app/components/Toast";
 import { useSettings } from "~/app/context/SettingsContext";
 import { useNavigationState } from "~/app/hooks/useNavigationState";
 import { USER_REJECTED_ERROR } from "~/common/constants";
@@ -41,7 +42,6 @@ function MakeInvoice() {
   const [fiatValue, setFiatValue] = useState("");
   const [memo, setMemo] = useState(invoiceAttributes.memo || "");
   const [error, setError] = useState("");
-  const { t: tComponents } = useTranslation("components");
   const { t: tCommon } = useTranslation("common");
   const { t } = useTranslation("translation", {
     keyPrefix: "make_invoice",
@@ -60,12 +60,18 @@ function MakeInvoice() {
     setError("");
     if (
       invoiceAttributes.minimumAmount &&
-      parseInt(amount) < invoiceAttributes.minimumAmount
+      parseInt(amount) <
+        (typeof invoiceAttributes.minimumAmount === "string"
+          ? parseInt(invoiceAttributes.minimumAmount)
+          : invoiceAttributes.minimumAmount)
     ) {
       setError(t("errors.amount_too_small"));
     } else if (
       invoiceAttributes.maximumAmount &&
-      parseInt(amount) > invoiceAttributes.maximumAmount
+      parseInt(amount) >
+        (typeof invoiceAttributes.maximumAmount === "string"
+          ? parseInt(invoiceAttributes.maximumAmount)
+          : invoiceAttributes.maximumAmount)
     ) {
       setError(t("errors.amount_too_big"));
     }
@@ -86,6 +92,7 @@ function MakeInvoice() {
       });
       msg.reply(response);
     } catch (e) {
+      if (e instanceof Error) toast.error(`${tCommon("error")}: ${e.message}`);
       console.error(e);
     } finally {
       setLoading(false);
@@ -157,18 +164,11 @@ function MakeInvoice() {
               </div>
             </div>
           </div>
-
-          <div>
-            <ConfirmOrCancel
-              disabled={!valueSat || loading || Boolean(error)}
-              loading={loading}
-              onCancel={reject}
-            />
-
-            <p className="mb-4 text-center text-sm text-gray-400">
-              <em>{tComponents("confirm_or_cancel.only_trusted")}</em>
-            </p>
-          </div>
+          <ConfirmOrCancel
+            disabled={!valueSat || loading || Boolean(error)}
+            loading={loading}
+            onCancel={reject}
+          />
         </Container>
       </form>
     </div>

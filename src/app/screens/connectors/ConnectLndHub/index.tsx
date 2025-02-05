@@ -6,19 +6,16 @@ import ConnectionErrorToast from "@components/toasts/ConnectionErrorToast";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import toast from "~/app/components/Toast";
 import msg from "~/common/lib/msg";
 
-export type Props = {
-  lndHubType?: "lndhub_bluewallet" | "lndhub_go";
-};
+import logo from "/static/assets/icons/lndhub_go.png";
 
-export default function ConnectLndHub({
-  lndHubType = "lndhub_bluewallet",
-}: Props) {
+export default function ConnectLndHub() {
   const navigate = useNavigate();
+
   const { t } = useTranslation("translation", {
-    keyPrefix: `choose_connector.${lndHubType}`,
+    keyPrefix: "choose_connector.lndhub_go",
   });
   const [formData, setFormData] = useState({
     uri: "",
@@ -54,7 +51,7 @@ export default function ConnectLndHub({
     const password = match[2];
     const url = match[3].replace(/\/$/, "");
     const account = {
-      name: lndHubType === "lndhub_bluewallet" ? "Bluewallet" : "LNDHub",
+      name: "LNDHub",
       config: {
         login,
         password,
@@ -79,6 +76,9 @@ export default function ConnectLndHub({
             id: addResult.accountId,
           });
           navigate("/test-connection");
+        } else {
+          console.error("Failed to add account", addResult);
+          throw new Error(addResult.error as string);
         }
       } else {
         console.error(validation);
@@ -101,6 +101,7 @@ export default function ConnectLndHub({
     <ConnectorForm
       title={t("page.title")}
       description={t("page.description")}
+      logo={logo}
       submitLoading={loading}
       submitDisabled={formData.uri === ""}
       onSubmit={handleSubmit}
@@ -109,26 +110,26 @@ export default function ConnectLndHub({
         <TextField
           id="uri"
           label={t("uri.label")}
-          type="text"
           required
           placeholder="lndhub://..."
           pattern="lndhub://.+"
           title="lndhub://..."
           value={formData.uri}
           onChange={handleChange}
+          autoFocus={true}
         />
       </div>
       {formData.uri.match(/\.onion/i) && (
         <div className="mb-6">
           <CompanionDownloadInfo
-            hasTorCallback={() => {
-              setHasTorSupport(true);
+            hasTorCallback={(hasTor: boolean) => {
+              setHasTorSupport(hasTor);
             }}
           />
         </div>
       )}
       <div>
-        <p className="text-center my-4 dark:text-white">OR</p>
+        <p className="text-center my-6 dark:text-white">OR</p>
         <QrcodeScanner
           fps={10}
           qrbox={250}

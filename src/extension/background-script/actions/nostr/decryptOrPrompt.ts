@@ -1,57 +1,68 @@
+import {
+  DONT_ASK_ANY,
+  DONT_ASK_CURRENT,
+  USER_REJECTED_ERROR,
+} from "~/common/constants";
 import utils from "~/common/lib/utils";
+import { getHostFromSender } from "~/common/utils/helpers";
+import {
+  addPermissionFor,
+  hasPermissionFor,
+  isPermissionBlocked,
+} from "~/extension/background-script/permissions";
 import state from "~/extension/background-script/state";
-import i18n from "~/i18n/i18nConfig";
-import { MessageDecryptGet, PermissionMethodNostr } from "~/types";
+import { MessageDecryptGet, PermissionMethodNostr, Sender } from "~/types";
 
-import { addPermissionFor, hasPermissionFor } from "./helpers";
-
-const decryptOrPrompt = async (message: MessageDecryptGet) => {
-  if (!("host" in message.origin)) {
-    console.error("error", message.origin);
-    return;
-  }
+const decryptOrPrompt = async (message: MessageDecryptGet, sender: Sender) => {
+  const host = getHostFromSender(sender);
+  if (!host) return;
 
   try {
     const hasPermission = await hasPermissionFor(
-      PermissionMethodNostr["NOSTR_NIP04DECRYPT"],
-      message.origin.host
+      PermissionMethodNostr["NOSTR_DECRYPT"],
+      host
     );
 
-    if (hasPermission) {
-      const response = state
-        .getState()
-        .getNostr()
-        .decrypt(message.args.peer, message.args.ciphertext);
+    const isBlocked = await isPermissionBlocked(
+      PermissionMethodNostr["NOSTR_DECRYPT"],
+      host
+    );
 
-      return { data: response };
+    if (isBlocked) {
+      return { denied: true };
+    }
+
+    if (hasPermission) {
+      return decrypt();
     } else {
       const promptResponse = await utils.openPrompt<{
         confirm: boolean;
-        rememberPermission: boolean;
+        permissionOption: string;
+        blocked: boolean;
       }>({
         ...message,
-        action: "public/nostr/confirm",
-        args: {
-          description: i18n.t("permissions:nostr.nip04decrypt"),
-        },
+        action: "public/nostr/confirmDecrypt",
       });
 
       // add permission to db only if user decided to always allow this request
-      if (promptResponse.data.rememberPermission) {
+      if (promptResponse.data.permissionOption == DONT_ASK_CURRENT) {
         await addPermissionFor(
-          PermissionMethodNostr["NOSTR_NIP04DECRYPT"],
-          message.origin.host
+          PermissionMethodNostr["NOSTR_DECRYPT"],
+          host,
+          promptResponse.data.blocked
         );
       }
-      if (promptResponse.data.confirm) {
-        const response = state
-          .getState()
-          .getNostr()
-          .decrypt(message.args.peer, message.args.ciphertext);
 
-        return { data: response };
+      if (promptResponse.data.permissionOption == DONT_ASK_ANY) {
+        Object.values(PermissionMethodNostr).forEach(async (permission) => {
+          await addPermissionFor(permission, host, promptResponse.data.blocked);
+        });
+      }
+
+      if (promptResponse.data.confirm) {
+        return decrypt();
       } else {
-        return { error: "User rejected" };
+        return { error: USER_REJECTED_ERROR };
       }
     }
   } catch (e) {
@@ -59,6 +70,16 @@ const decryptOrPrompt = async (message: MessageDecryptGet) => {
     if (e instanceof Error) {
       return { error: e.message };
     }
+  }
+
+  async function decrypt() {
+    const nostr = await state.getState().getNostr();
+    const response = await nostr.nip04Decrypt(
+      message.args.peer,
+      message.args.ciphertext
+    );
+
+    return { data: response };
   }
 };
 

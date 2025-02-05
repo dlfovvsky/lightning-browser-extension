@@ -1,12 +1,11 @@
+import fetchAdapter from "@vespaiach/axios-fetch-adapter";
 import axios from "axios";
-import lightningPayReq from "bolt11";
-import Hex from "crypto-js/enc-hex";
-import sha256 from "crypto-js/sha256";
+import lightningPayReq from "bolt11-signet";
 import { isLNURLDetailsError } from "~/common/utils/typeHelpers";
 import {
+  LNURLAuthServiceResponse,
   LNURLDetails,
   LNURLError,
-  LNURLAuthServiceResponse,
   LNURLPaymentInfo,
 } from "~/types";
 
@@ -89,12 +88,16 @@ const lnurl = {
     } else {
       try {
         const { data }: { data: LNURLDetails | LNURLError } = await axios.get(
-          url.toString()
+          url.toString(),
+          {
+            adapter: fetchAdapter,
+          }
         );
+
         const lnurlDetails = data;
 
         if (isLNURLDetailsError(lnurlDetails)) {
-          throw new Error(`LNURL Error: ${lnurlDetails.reason}`);
+          throw new Error(lnurlDetails.reason);
         } else {
           lnurlDetails.domain = url.hostname;
           lnurlDetails.url = url.toString();
@@ -102,44 +105,32 @@ const lnurl = {
 
         return lnurlDetails;
       } catch (e) {
-        throw new Error(
-          `Connection problem or invalid lnurl / lightning address: ${
-            e instanceof Error ? e.message : ""
-          }`
-        );
+        let error = "";
+        if (axios.isAxiosError(e)) {
+          error =
+            (e.response?.data as { reason?: string })?.reason || e.message;
+
+          if (this.isLightningAddress(lnurlString)) {
+            error = `This is not a valid lightning address. Either the address is invalid or it is using a different and unsupported protocol: ${error}`;
+          }
+        } else if (e instanceof Error) {
+          error = e.message;
+        }
+
+        throw new Error(error);
       }
     }
   },
 
   verifyInvoice({
     paymentInfo,
-    payerdata,
-    metadata,
     amount,
   }: {
     paymentInfo: LNURLPaymentInfo;
-    payerdata:
-      | undefined
-      | {
-          name?: string;
-          email?: string;
-        };
-    metadata: string;
     amount: number;
   }) {
     const paymentRequestDetails = lightningPayReq.decode(paymentInfo.pr);
-    let metadataHash = "";
-    try {
-      const dataToHash = payerdata
-        ? metadata + JSON.stringify(payerdata)
-        : metadata;
-      metadataHash = sha256(dataToHash).toString(Hex);
-    } catch (e) {
-      console.error();
-    }
     switch (true) {
-      case paymentRequestDetails.tagsObject.purpose_commit_hash !==
-        metadataHash: // LN WALLET Verifies that h tag (description_hash) in provided invoice is a hash of metadata string converted to byte array in UTF-8 encoding
       case paymentRequestDetails.millisatoshis !== String(amount): // LN WALLET Verifies that amount in provided invoice equals an amount previously specified by user
       case paymentInfo.successAction &&
         !["url", "message", "aes"].includes(paymentInfo.successAction.tag): // If successAction is not null: LN WALLET makes sure that tag value of is of supported type, aborts a payment otherwise

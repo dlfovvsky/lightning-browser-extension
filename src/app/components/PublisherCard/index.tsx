@@ -31,15 +31,14 @@ export default function PublisherCard({
     <div
       className={classNames(
         isSmall ? "p-2" : "flex-col justify-center p-4",
-        isCard && "drop-shadow rounded-lg mt-4",
-        !image && "h-24",
-        "flex items-center bg-white dark:bg-surface-02dp"
+        isCard && "drop-shadow rounded-lg mt-4 bg-white dark:bg-surface-02dp",
+        "flex items-center"
       )}
     >
       {image && (
         <img
-          className={`m-2 shrink-0 object-cover rounded-lg ${
-            isSmall ? "w-14 h-14 mr-4" : "w-20 h-20"
+          className={`shrink-0 object-cover rounded-md ${
+            isSmall ? "w-10 h-10 mr-3" : "w-20 h-20"
           }`}
           src={image || DEFAULT_IMAGE}
           alt={`${title} logo`}
@@ -51,17 +50,17 @@ export default function PublisherCard({
         />
       )}
       <div
-        className={
-          "flex flex-col overflow-hidden w-full " +
-          (isSmall ? "" : "text-center ") +
-          (isSmall && !image && "ml-4")
-        }
+        className={classNames(
+          "flex flex-col overflow-hidden w-full",
+          !isSmall && "text-center",
+          isSmall && !image && "ml-1"
+        )}
       >
         <h2
           title={title}
           className={
-            "text-xl font-semibold dark:text-white overflow-hidden text-ellipsis whitespace-nowrap leading-1" +
-            (isSmall ? "my-1" : "my-2")
+            "font-semibold dark:text-white overflow-hidden text-ellipsis whitespace-nowrap" +
+            (isSmall ? "" : " mt-2 text-xl")
           }
         >
           {title}
@@ -71,7 +70,10 @@ export default function PublisherCard({
             href={`https://${url}`}
             title={url}
             target="_blank"
-            className="text-gray-500 dark:text-gray-400 overflow-hidden mb-2 text-ellipsis whitespace-nowrap leading-1"
+            className={classNames(
+              "text-gray-500 dark:text-neutral-500 overflow-hidden text-ellipsis whitespace-nowrap",
+              isSmall && "text-xs"
+            )}
             rel="noreferrer noopener"
           >
             {url}
@@ -80,7 +82,10 @@ export default function PublisherCard({
         {!url && description && (
           <p
             title={description}
-            className="text-gray-500 dark:text-gray-400 mb-2 line-clamp-2"
+            className={classNames(
+              "text-gray-500 dark:text-neutral-500 overflow-hidden text-ellipsis whitespace-nowrap",
+              isSmall && "text-xs"
+            )}
           >
             {description}
           </p>

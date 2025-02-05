@@ -13,10 +13,11 @@ export default function ConnectionErrorToast({
   const { t: tCommon } = useTranslation("common");
   return (
     <>
-      <p className="mb-2">
-        {tCommon("errors.connection_failed")}
-        <br />(<span className="italic text-sm">{message}</span>)
+      <p className="text-sm font-medium">
+        {tCommon("errors.connection_failed")} (
+        <span className="text-sm">{message}</span>)
       </p>
+
       <p className="my-2 text-sm">{t("what_you_can_do")}</p>
       <ul className="list-disc text-sm list-inside">
         <li>{t("double_check")}</li>
@@ -36,7 +37,7 @@ export default function ConnectionErrorToast({
         )}
         <li>
           <a
-            href="https://guides.getalby.com/overall-guide/alby-browser-extension/connect-lightning-wallets-and-nodes-to-alby-extension"
+            href="https://guides.getalby.com/user-guide/v/alby-account-and-browser-extension/alby-browser-extension/connect-lightning-wallets-and-nodes-to-the-alby-extension"
             className="underline"
             target="_blank"
             rel="noreferrer noopener"

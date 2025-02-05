@@ -8,6 +8,7 @@ import { useNavigationState } from "~/app/hooks/useNavigationState";
 import { makeInvoice } from "~/common/lib/api";
 import type { LNURLWithdrawServiceResponse, OriginData } from "~/types";
 
+import Toaster from "~/app/components/Toast/Toaster";
 import LNURLWithdraw from "./index";
 
 const mockDetailsFiatJef: LNURLWithdrawServiceResponse = {
@@ -133,6 +134,7 @@ describe("LNURLWithdraw", () => {
     render(
       <MemoryRouter>
         <SettingsProvider>
+          <Toaster />
           <LNURLWithdraw />
         </SettingsProvider>
       </MemoryRouter>
@@ -142,8 +144,6 @@ describe("LNURLWithdraw", () => {
       await user.click(screen.getByText("Confirm"));
     });
 
-    expect(
-      await screen.findByText("Error: Link not working")
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Link not working")).toBeInTheDocument();
   });
 });

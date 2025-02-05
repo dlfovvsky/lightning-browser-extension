@@ -1,5 +1,6 @@
 const defaultTheme = require("tailwindcss/defaultTheme");
 const colors = require("tailwindcss/colors");
+const plugin = require("tailwindcss/plugin");
 
 function lighten(color, percent) {
   var num = parseInt(color.replace("#", ""), 16),
@@ -25,44 +26,53 @@ const surfaceColor = "#121212";
 module.exports = {
   darkMode: "class",
   content: ["./static/views/**/*.html", "./src/app/**/*.{js,ts,jsx,tsx}"],
-  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/line-clamp")],
+  plugins: [
+    plugin(function ({ addUtilities }) {
+      const newUtilities = {
+        ".translate-z-0": {
+          transform: "translateZ(0)",
+        },
+      };
+      addUtilities(newUtilities);
+    }),
+    require("@tailwindcss/forms"),
+  ],
   theme: {
     extend: {
       animation: {
         "spin-fast": "spin 0.7s linear infinite",
       },
       fontFamily: {
-        sans: ["Inter var", ...defaultTheme.fontFamily.sans],
+        sans: ["Open Runde", ...defaultTheme.fontFamily.sans],
         serif: ["Catamaran", ...defaultTheme.fontFamily.sans],
       },
       fontSize: {
         xxxs: ".5rem",
         xxs: ".625rem",
       },
+      screens: {
+        short: { raw: "(max-height: 800px)" },
+      },
       spacing: {
         18: "4.5rem",
       },
       colors: {
-        "orange-bitcoin": "#f7931a",
-        "orange-bitcoin-700": "#e78308",
-        "orange-bitcoin-50": "#fdf0d5",
-        "red-bitcoin": "#eb5757",
+        primary: "#F8C455",
+        "brand-yellow": "#FFDF6F",
         "green-bitcoin": "#27ae60",
-        "blue-bitcoin": "#2d9cdb",
-        "purple-bitcoin": "#bb6bd9",
 
         // Material Design Surface Colors
         "surface-00dp": surfaceColor,
         "surface-01dp": lighten(surfaceColor, 5),
         "surface-02dp": lighten(surfaceColor, 7),
-        "surface-03dp": lighten(surfaceColor, 8),
-        "surface-04dp": lighten(surfaceColor, 9),
-        "surface-06dp": lighten(surfaceColor, 11),
         "surface-08dp": lighten(surfaceColor, 12),
         "surface-12dp": lighten(surfaceColor, 14),
         "surface-16dp": lighten(surfaceColor, 15),
-        "surface-24dp": lighten(surfaceColor, 16),
       },
     },
+    backgroundImage: (theme) => ({
+      "primary-gradient": `linear-gradient(180deg, #FFDE6E 63%, #F8C455 95%)`,
+      "primary-gradient-hover": `linear-gradient(180deg, #F2D369 63%, #ECBA51 95%)`,
+    }),
   },
 };

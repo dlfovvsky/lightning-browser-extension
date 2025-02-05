@@ -22,17 +22,18 @@ jobs:
 
       - run: yarn install --frozen-lockfile
 
-      - run: yarn build:chrome
+      - name: Build chrome
+        run: yarn build:chrome
 
       - name: Test Code
-        uses: mujo-code/puppeteer-headful@v2
+        uses: mujo-code/puppeteer-headful@18.9.0
         env:
           CI: "true"
         with:
           args: npx playwright test
 
       - name: Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-artifcats

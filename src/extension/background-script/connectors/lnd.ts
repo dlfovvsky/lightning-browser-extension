@@ -4,16 +4,20 @@ import UTF8 from "crypto-js/enc-utf8";
 import WordArray from "crypto-js/lib-typedarrays";
 import SHA256 from "crypto-js/sha256";
 import utils from "~/common/lib/utils";
+import { Account } from "~/types";
 
+import { mergeTransactions } from "~/common/utils/helpers";
+import { getPaymentRequestDescription } from "~/common/utils/paymentRequest";
 import Connector, {
   CheckPaymentArgs,
   CheckPaymentResponse,
-  ConnectorInvoice,
+  ConnectorTransaction,
   ConnectPeerArgs,
   ConnectPeerResponse,
+  flattenRequestMethods,
   GetBalanceResponse,
   GetInfoResponse,
-  GetInvoicesResponse,
+  GetTransactionsResponse,
   KeysendArgs,
   MakeInvoiceArgs,
   MakeInvoiceResponse,
@@ -117,6 +121,30 @@ const methods: Record<string, Record<string, string>> = {
     path: "/v1/invoices",
     httpMethod: "POST",
   },
+  addholdinvoice: {
+    path: "/v2/invoices/hodl",
+    httpMethod: "POST",
+  },
+  settleinvoice: {
+    path: "/v2/invoices/settle",
+    httpMethod: "POST",
+  },
+  newaddress: {
+    path: "/v1/newaddress",
+    httpMethod: "GET",
+  },
+  nextaddr: {
+    path: "/v2/wallet/address/next",
+    httpMethod: "POST",
+  },
+  listaddresses: {
+    path: "/v2/wallet/addresses",
+    httpMethod: "GET",
+  },
+  listunspent: {
+    path: "/v2/wallet/utxos",
+    httpMethod: "POST",
+  },
 };
 
 const pathTemplateParser = (
@@ -135,9 +163,11 @@ const pathTemplateParser = (
 };
 
 class Lnd implements Connector {
+  account: Account;
   config: Config;
 
-  constructor(config: Config) {
+  constructor(account: Account, config: Config) {
+    this.account = account;
     this.config = config;
   }
 
@@ -150,7 +180,16 @@ class Lnd implements Connector {
   }
 
   get supportedMethods() {
-    return Object.keys(methods);
+    return [
+      "getInfo",
+      "keysend",
+      "makeInvoice",
+      "sendPayment",
+      "sendPaymentAsync",
+      "signMessage",
+      "getBalance",
+      ...flattenRequestMethods(Object.keys(methods)),
+    ];
   }
 
   async requestMethod(
@@ -238,11 +277,12 @@ class Lnd implements Connector {
       if (data.payment_error) {
         throw new Error(data.payment_error);
       }
+      const { total_amt, total_fees } = data.payment_route;
       return {
         data: {
           preimage: utils.base64ToHex(data.payment_preimage),
           paymentHash: utils.base64ToHex(data.payment_hash),
-          route: data.payment_route,
+          route: { total_amt: total_amt - total_fees, total_fees },
         },
       };
     });
@@ -354,26 +394,24 @@ class Lnd implements Connector {
   };
 
   getChannelsBalance = () => {
-    return this.request<{ balance: number; pending_open_balance: number }>(
+    return this.request<{ balance: string }>(
       "GET",
       "/v1/balance/channels",
       undefined,
       {
-        pending_open_balance: "0",
-        balance: "0",
+        balance: 0,
       }
     ).then((data) => {
       return {
         data: {
-          balance: data.balance,
-          pending_open_balance: data.pending_open_balance,
+          balance: +data.balance,
         },
       };
     });
   };
 
-  async getInvoices(): Promise<GetInvoicesResponse> {
-    const data = await this.request<{
+  private async getInvoices(): Promise<ConnectorTransaction[]> {
+    const lndInvoices = await this.request<{
       invoices: {
         add_index: string;
         amt_paid_msat: string;
@@ -394,7 +432,7 @@ class Lnd implements Connector {
           resolve_time: string;
           expiry_height: number;
           state: "SETTLED";
-          custom_records: ConnectorInvoice["custom_records"];
+          custom_records: ConnectorTransaction["custom_records"];
           mpp_total_amt_msat: string;
           amp?: unknown;
         }[];
@@ -417,31 +455,93 @@ class Lnd implements Connector {
       first_index_offset: string;
     }>("GET", "/v1/invoices", { reversed: true });
 
-    const invoices: ConnectorInvoice[] = data.invoices
-      .map((invoice, index): ConnectorInvoice => {
+    const invoices: ConnectorTransaction[] = lndInvoices.invoices.map(
+      (invoice, index): ConnectorTransaction => {
         const custom_records =
           invoice.htlcs[0] && invoice.htlcs[0].custom_records;
 
         return {
-          custom_records,
           id: `${invoice.payment_request}-${index}`,
           memo: invoice.memo,
-          preimage: invoice.r_preimage,
+          preimage: utils.base64ToHex(invoice.r_preimage),
+          payment_hash: utils.base64ToHex(invoice.r_hash),
           settled: invoice.settled,
           settleDate: parseInt(invoice.settle_date) * 1000,
-          totalAmount: invoice.value,
+          creationDate: parseInt(invoice.creation_date) * 1000,
+          totalAmount: parseInt(invoice.value),
           type: "received",
+          custom_records,
         };
-      })
-      .sort((a, b) => {
-        return b.settleDate - a.settleDate;
-      });
+      }
+    );
+
+    return invoices;
+  }
+
+  async getTransactions(): Promise<GetTransactionsResponse> {
+    const invoices = await this.getInvoices();
+    const payments = await this.getPayments();
+
+    const transactions: ConnectorTransaction[] = mergeTransactions(
+      invoices,
+      payments
+    ).filter((transaction) => transaction.settled);
 
     return {
       data: {
-        invoices,
+        transactions,
       },
     };
+  }
+
+  private async getPayments(): Promise<ConnectorTransaction[]> {
+    const lndPayments = await this.request<{
+      payments: {
+        payment_hash: string;
+        payment_preimage: string;
+        value_sat: number;
+        value_msat: number;
+        payment_request: string;
+        status: string;
+        fee_sat: string;
+        fee_msat: string;
+        creation_time_ns: string;
+        creation_date: string;
+        htlcs: Array<string>;
+        payment_index: string;
+        failure_reason: string;
+      }[];
+      last_index_offset: string;
+      first_index_offset: string;
+      total_num_payments: string;
+    }>("GET", "/v1/payments", {
+      reversed: true,
+      max_payments: 100,
+      include_incomplete: false,
+    });
+
+    const payments: ConnectorTransaction[] = lndPayments.payments.map(
+      (payment, index): ConnectorTransaction => {
+        let description: string | undefined;
+        if (payment.payment_request) {
+          description = getPaymentRequestDescription(payment.payment_request);
+        }
+
+        return {
+          id: `${payment.payment_request}-${index++}`,
+          memo: description,
+          preimage: payment.payment_preimage,
+          payment_hash: payment.payment_hash,
+          settled: true,
+          settleDate: parseInt(payment.creation_date) * 1000,
+          creationDate: parseInt(payment.creation_date) * 1000,
+          totalAmount: payment.value_sat,
+          type: "sent",
+        };
+      }
+    );
+
+    return payments;
   }
 
   protected async request<Type>(

@@ -2,13 +2,17 @@
 // Could be split up into i.e.
 // constants/messages
 // constants/[...etc]
-import i18n from "~/i18n/i18nConfig";
-import type { SettingsStorage } from "~/types";
 
 export const ABORT_PROMPT_ERROR = "Prompt was closed";
 export const USER_REJECTED_ERROR = "User rejected";
+export const NO_KEYS_ERROR = "No keys available";
 
-// Currently only relevant for connector Kollider
+// permissions constants
+export const ASK_EVERYTIME = "ask_everytime";
+export const DONT_ASK_ANY = "dont_ask_any";
+export const DONT_ASK_CURRENT = "dont_ask_current";
+
+// Currently only relevant for connectors which provide stablecoins
 // all other connectors fall back to BTC
 export type ACCOUNT_CURRENCIES = "EUR" | "USD" | "BTC";
 
@@ -163,27 +167,3 @@ export enum CURRENCIES {
   ZMW = "ZMW",
   ZWL = "ZWL",
 }
-
-export enum TIPS {
-  TOP_UP_WALLET = "top_up_wallet",
-  PIN = "pin",
-  DEMO = "demo",
-  ADDRESS = "address",
-}
-
-export const DEFAULT_SETTINGS: SettingsStorage = {
-  browserNotifications: true,
-  websiteEnhancements: true,
-  legacyLnurlAuth: false,
-  isUsingLegacyLnurlAuthKey: false,
-  userName: "",
-  userEmail: "",
-  locale: i18n.resolvedLanguage,
-  theme: "system",
-  showFiat: true,
-  currency: CURRENCIES.USD,
-  exchange: "alby",
-  debug: false,
-  nostrEnabled: false,
-  closedTips: [],
-};

@@ -1,11 +1,10 @@
-import { Runtime } from "webextension-polyfill";
 import utils from "~/common/lib/utils";
 import db from "~/extension/background-script/db";
 import state from "~/extension/background-script/state";
 import { allowanceFixture } from "~/fixtures/allowances";
-import type { DbAllowance, MessageAllowanceEnable } from "~/types";
+import type { DbAllowance, MessageAllowanceEnable, Sender } from "~/types";
 
-import enableAllowance from "../enable";
+import enableAllowance from "../../webln/enable";
 
 jest.mock("~/extension/background-script/state");
 
@@ -50,7 +49,13 @@ describe("enable allowance", () => {
       },
     };
 
-    const sender: Runtime.MessageSender = {};
+    const sender: Sender = {
+      documentId: "ALBY123",
+      documentLifecycle: "active",
+      id: "alby",
+      origin: `https://lnmarkets.com`,
+      url: `https://lnmarkets.com/test`,
+    };
 
     await db.allowances.bulkAdd(mockAllowances);
 
@@ -73,20 +78,25 @@ describe("enable allowance", () => {
       origin: {
         location: "test",
         domain: "",
-        host: "pro.kollider.xyz",
+        host: "getalby.com",
         pathname: "test",
-        name: "pro kollider",
+        name: "Alby: Your Bitcoin & Nostr companion for the web",
         description: "test",
         icon: "",
         metaData: {},
         external: true,
       },
       args: {
-        host: "pro.kollider.xyz",
+        host: "getalby.com",
       },
     };
-
-    const sender: Runtime.MessageSender = {};
+    const sender: Sender = {
+      documentId: "ALBY123",
+      documentLifecycle: "active",
+      id: "alby",
+      origin: `https://getalby.com`,
+      url: `https://getalby.com/test`,
+    };
 
     expect(await enableAllowance(message, sender)).toStrictEqual({
       data: {

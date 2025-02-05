@@ -1,18 +1,17 @@
-import { CaretLeftIcon } from "@bitcoin-design/bitcoin-icons-react/filled";
 import Button from "@components/Button";
 import ConfirmOrCancel from "@components/ConfirmOrCancel";
 import ContentMessage from "@components/ContentMessage";
 import Header from "@components/Header";
 import IconButton from "@components/IconButton";
-import PublisherCard from "@components/PublisherCard";
 import ResultCard from "@components/ResultCard";
 import SatButtons from "@components/SatButtons";
 import DualCurrencyField from "@components/form/DualCurrencyField";
+import { PopiconsChevronLeftLine } from "@popicons/react";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import Container from "~/app/components/Container";
+import toast from "~/app/components/Toast";
 import { useAccount } from "~/app/context/AccountContext";
 import { useSettings } from "~/app/context/SettingsContext";
 import { useNavigationState } from "~/app/hooks/useNavigationState";
@@ -29,15 +28,23 @@ function Keysend() {
   const navState = useNavigationState();
   const navigate = useNavigate();
   const auth = useAccount();
-  const [amountSat, setAmountSat] = useState(navState.args?.amount || "");
-  const customRecords = navState.args?.customRecords;
-  const destination = navState.args?.destination as string;
+  const [amountSat, setAmountSat] = useState(navState?.args?.amount || "1");
+  const customRecords = navState?.args?.customRecords;
+  const destination = navState?.args?.destination as string;
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [fiatAmount, setFiatAmount] = useState("");
 
   const { t } = useTranslation("translation", { keyPrefix: "keysend" });
   const { t: tCommon } = useTranslation("common");
+
+  const amountMin = 1;
+
+  const amountExceeded =
+    (auth?.account?.currency || "BTC") !== "BTC"
+      ? false
+      : +amountSat > (auth?.account?.balance || 0);
+  const rangeExceeded = +amountSat < amountMin;
 
   useEffect(() => {
     (async () => {
@@ -97,43 +104,46 @@ function Keysend() {
   return (
     <div className="h-full flex flex-col overflow-y-auto no-scrollbar">
       <Header
-        title={t("title")}
         headerLeft={
           <IconButton
             onClick={() => navigate("/send")}
-            icon={<CaretLeftIcon className="w-4 h-4" />}
+            icon={<PopiconsChevronLeftLine className="w-5 h-5" />}
           />
         }
-      />
+      >
+        {t("title")}
+      </Header>
       {!successMessage ? (
         <>
           <form onSubmit={handleSubmit} className="h-full">
             <Container justifyBetween maxWidth="sm">
               <div>
-                {destination && <PublisherCard title={destination} />}
                 <ContentMessage
                   heading={t("receiver.label")}
                   content={destination}
                 />
-                <div className="p-4 shadow bg-white dark:bg-surface-02dp rounded-lg overflow-hidden">
-                  <DualCurrencyField
-                    id="amount"
-                    label={t("amount.label")}
-                    min={+0 / 1000}
-                    max={+1000000 / 1000}
-                    onChange={(e) => setAmountSat(e.target.value)}
-                    value={amountSat}
-                    fiatValue={fiatAmount}
-                  />
-                  <SatButtons onClick={setAmountSat} />
-                </div>
+                <DualCurrencyField
+                  id="amount"
+                  label={t("amount.label")}
+                  min={1}
+                  onChange={(e) => setAmountSat(e.target.value)}
+                  value={amountSat}
+                  fiatValue={fiatAmount}
+                  hint={`${tCommon("balance")}: ${auth?.balancesDecorated
+                    ?.accountBalance}`}
+                  amountExceeded={amountExceeded}
+                  rangeExceeded={rangeExceeded}
+                />
+                <SatButtons onClick={setAmountSat} />
               </div>
-              <ConfirmOrCancel
-                label={tCommon("actions.confirm")}
-                onCancel={reject}
-                loading={loading}
-                disabled={loading || !amountSat}
-              />
+              <div className="mt-8">
+                <ConfirmOrCancel
+                  label={tCommon("actions.confirm")}
+                  onCancel={reject}
+                  loading={loading}
+                  disabled={loading || rangeExceeded || amountExceeded}
+                />
+              </div>
             </Container>
           </form>
         </>
@@ -151,7 +161,7 @@ function Keysend() {
                   })
             }
           />
-          <div className="my-4">
+          <div className="mt-4">
             <Button
               onClick={close}
               label={tCommon("actions.close")}

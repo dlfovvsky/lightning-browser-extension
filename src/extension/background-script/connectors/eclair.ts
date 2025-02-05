@@ -1,20 +1,21 @@
 import Base64 from "crypto-js/enc-base64";
 import UTF8 from "crypto-js/enc-utf8";
+import { Account } from "~/types";
 
 import Connector, {
-  SendPaymentArgs,
-  SendPaymentResponse,
   CheckPaymentArgs,
   CheckPaymentResponse,
   ConnectPeerResponse,
-  GetInfoResponse,
-  GetInvoicesResponse,
   GetBalanceResponse,
+  GetInfoResponse,
+  GetTransactionsResponse,
+  KeysendArgs,
   MakeInvoiceArgs,
   MakeInvoiceResponse,
+  SendPaymentArgs,
+  SendPaymentResponse,
   SignMessageArgs,
   SignMessageResponse,
-  KeysendArgs,
 } from "./connector.interface";
 
 interface Config {
@@ -23,9 +24,11 @@ interface Config {
 }
 
 class Eclair implements Connector {
+  account: Account;
   config: Config;
 
-  constructor(config: Config) {
+  constructor(account: Account, config: Config) {
+    this.account = account;
     this.config = config;
   }
 
@@ -38,7 +41,15 @@ class Eclair implements Connector {
   }
 
   get supportedMethods() {
-    return ["getInfo", "keysend", "makeInvoice", "sendPayment", "signMessage"];
+    return [
+      "getInfo",
+      "keysend",
+      "makeInvoice",
+      "sendPayment",
+      "sendPaymentAsync",
+      "signMessage",
+      "getBalance",
+    ];
   }
 
   getInfo(): Promise<GetInfoResponse> {
@@ -61,30 +72,17 @@ class Eclair implements Connector {
     throw new Error("Not yet supported with the currently used account.");
   }
 
-  // not yet implemented
-  async getInvoices(): Promise<GetInvoicesResponse> {
+  async getTransactions(): Promise<GetTransactionsResponse> {
     console.error(
-      `Not yet supported with the currently used account: ${this.constructor.name}`
+      `getTransactions() is not yet supported with the currently used account: ${this.constructor.name}`
     );
-    throw new Error(
-      `${this.constructor.name}: "getInvoices" is not yet supported. Contact us if you need it.`
-    );
+    return { data: { transactions: [] } };
   }
 
   async getBalance(): Promise<GetBalanceResponse> {
-    const channels = await this.request("/channels");
-    const total = channels
-      .map(
-        (
-          channel: Record<
-            string,
-            Record<
-              string,
-              Record<string, Record<string, Record<string, number>>>
-            >
-          >
-        ) => channel.data?.commitments?.localCommit?.spec?.toLocal || 0
-      )
+    const balances = await this.request("/usablebalances");
+    const total = balances
+      .map((balance: Record<string, number>) => balance.canSend || 0)
       .reduce((acc: number, b: number) => acc + b, 0);
     return {
       data: {
@@ -110,7 +108,7 @@ class Eclair implements Connector {
         paymentHash,
         route: {
           total_amt: Math.floor(recipientAmount / 1000),
-          total_fees: status.feesPaid,
+          total_fees: Math.floor(status.feesPaid / 1000),
         },
       },
     };

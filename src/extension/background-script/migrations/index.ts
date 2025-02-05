@@ -1,6 +1,10 @@
+import db from "../db";
 import state from "../state";
 
 export type Migration = keyof typeof migrations;
+
+// TS does not want unused code.
+// we need this for the next migration again
 
 const shouldMigrate = (name: Migration): boolean => {
   const { migrations } = state.getState();
@@ -25,48 +29,91 @@ const setMigrated = (name: Migration): Promise<void> => {
 };
 
 const migrations = {
-  migrateisUsingGlobalNostrKey: async () => {
-    const { nostrPrivateKey, accounts } = state.getState();
+  migrateEncryptPermission: async () => {
+    const allowances = await db.allowances.toArray();
 
-    if (nostrPrivateKey) {
-      Object.values(accounts).map((account) => {
-        if (!account.nostrPrivateKey) account.nostrPrivateKey = nostrPrivateKey;
-      });
+    for (const allowance of allowances) {
+      const permissions = await db.permissions
+        .where({ allowanceId: allowance.id })
+        .toArray();
 
-      state.setState({
-        accounts,
-      });
-      // will be persisted by setMigrated
+      let isupdated = false;
+
+      for (const permission of permissions) {
+        if (
+          permission.method === "nostr/nip04encrypt" ||
+          permission.method === "nostr/nip44encrypt"
+        ) {
+          if (isupdated === false) {
+            permission.id &&
+              (await db.permissions.update(permission.id, {
+                method: "nostr/encrypt",
+              }));
+
+            isupdated = true;
+          } else {
+            permission.id && (await db.permissions.delete(permission.id));
+          }
+        }
+      }
     }
+
+    console.info("Migration migrateEncryptPermission complete.");
   },
 
-  ensureAccountId: async () => {
-    const { accounts } = state.getState();
-    Object.keys(accounts).forEach((accountId) => {
-      if (!accounts[accountId].id) {
-        console.info(`updating ${accountId}`);
-        accounts[accountId].id = accountId;
+  migrateDecryptPermission: async () => {
+    const allowances = await db.allowances.toArray();
+
+    for (const allowance of allowances) {
+      const permissions = await db.permissions
+        .where({ allowanceId: allowance.id })
+        .toArray();
+
+      let isupdated = false;
+
+      for (const permission of permissions) {
+        if (
+          permission.method === "nostr/nip04decrypt" ||
+          permission.method === "nostr/nip44decrypt"
+        ) {
+          if (isupdated === false) {
+            permission.id &&
+              (await db.permissions.update(permission.id, {
+                method: "nostr/decrypt",
+              }));
+
+            isupdated = true;
+          } else {
+            permission.id && (await db.permissions.delete(permission.id));
+          }
+        }
       }
-    });
-    state.setState({
-      accounts,
-    });
-    // will be persisted by setMigrated
+    }
+
+    console.info("Migration migrateDecryptPermission complete.");
   },
 };
 
 const migrate = async () => {
   // going forward we can iterate through the the migrations object above and DRY this up:
   // Object.keys(migrations).forEach((name: string) => {
-  if (shouldMigrate("migrateisUsingGlobalNostrKey")) {
-    console.info("Running migration for: migrateisUsingGlobalNostrKey");
-    await migrations["migrateisUsingGlobalNostrKey"]();
-    await setMigrated("migrateisUsingGlobalNostrKey");
+  // example:
+  //if (shouldMigrate("migratePermissionsWithoutAccountId")) {
+  //  console.info("Running migration for: migratePermissionsWithoutAccountId");
+  //  await migrations["migratePermissionsWithoutAccountId"]();
+  //  await setMigrated("migratePermissionsWithoutAccountId");
+  //}
+
+  if (shouldMigrate("migrateEncryptPermission")) {
+    console.info("Running migration for: migrateEncryptPermission");
+    await migrations["migrateEncryptPermission"]();
+    await setMigrated("migrateEncryptPermission");
   }
-  if (shouldMigrate("ensureAccountId")) {
-    console.info("Running migration for: ensureAccountId");
-    await migrations["ensureAccountId"]();
-    await setMigrated("ensureAccountId");
+
+  if (shouldMigrate("migrateDecryptPermission")) {
+    console.info("Running migration for: migrateDecryptPermission");
+    await migrations["migrateDecryptPermission"]();
+    await setMigrated("migrateDecryptPermission");
   }
 };
 

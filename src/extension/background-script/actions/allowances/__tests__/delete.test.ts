@@ -9,15 +9,17 @@ const mockAllowances: DbAllowance[] = allowanceFixture;
 const mockPermissions = [
   {
     id: 1,
+    accountId: "123456",
     allowanceId: 1,
     createdAt: "1667291216372",
-    host: "pro.kollider.xyz",
+    host: "getalby.com",
     method: "webln/listchannels",
     blocked: false,
     enabled: true,
   },
   {
     id: 2,
+    accountId: "123456",
     allowanceId: 2,
     createdAt: "1667291216372",
     host: "lnmarkets.com",
@@ -27,6 +29,7 @@ const mockPermissions = [
   },
   {
     id: 3,
+    accountId: "123456",
     allowanceId: 2,
     createdAt: "1667291216372",
     host: "lnmarkets.com",
@@ -71,12 +74,13 @@ describe("delete allowance", () => {
     expect(dbAllowances).toEqual([
       {
         enabled: true,
-        host: "pro.kollider.xyz",
+        host: "getalby.com",
         id: 1,
-        imageURL: "https://pro.kollider.xyz/favicon.ico",
+        imageURL: "https://getalby.com/favicon.ico",
         lastPaymentAt: 0,
+        enabledFor: ["webln"],
         lnurlAuth: true,
-        name: "pro kollider",
+        name: "Alby: Your Bitcoin & Nostr companion for the web",
         remainingBudget: 500,
         totalBudget: 500,
         createdAt: "123456",

@@ -5,8 +5,10 @@ import ConnectionErrorToast from "@components/toasts/ConnectionErrorToast";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import PasswordViewAdornment from "~/app/components/PasswordViewAdornment";
+import toast from "~/app/components/Toast";
 import msg from "~/common/lib/msg";
+import logo from "/static/assets/icons/raspiblitz.png";
 
 const initialFormData = Object.freeze({
   url: "",
@@ -21,6 +23,7 @@ export default function ConnectRaspiBlitz() {
   const [formData, setFormData] = useState(initialFormData);
   const [loading, setLoading] = useState(false);
   const [hasTorSupport, setHasTorSupport] = useState(false);
+  const [macaroonVisible, setMacaroonVisible] = useState(false);
 
   function handleUrl(event: React.ChangeEvent<HTMLInputElement>) {
     let url = event.target.value.trim();
@@ -100,7 +103,7 @@ export default function ConnectRaspiBlitz() {
   return (
     <ConnectorForm
       title={
-        <h1 className="mb-6 text-2xl font-bold dark:text-white">
+        <h1 className="text-2xl font-bold dark:text-white">
           <Trans
             i18nKey={"page.title"}
             t={t}
@@ -123,6 +126,7 @@ export default function ConnectRaspiBlitz() {
           ]}
         />
       }
+      logo={logo}
       submitLoading={loading}
       submitDisabled={formData.url === "" || formData.macaroon === ""}
       onSubmit={handleSubmit}
@@ -135,12 +139,13 @@ export default function ConnectRaspiBlitz() {
           placeholder={t("rest_api_host.placeholder")}
           onChange={handleUrl}
           required
+          autoFocus={true}
         />
       </div>
       {formData.url.match(/\.onion/i) && (
         <CompanionDownloadInfo
-          hasTorCallback={() => {
-            setHasTorSupport(true);
+          hasTorCallback={(hasTor: boolean) => {
+            setHasTorSupport(hasTor);
           }}
         />
       )}
@@ -160,10 +165,19 @@ export default function ConnectRaspiBlitz() {
         <div>
           <TextField
             id="macaroon"
+            type={macaroonVisible ? "text" : "password"}
+            autoComplete="new-password"
             label="Macaroon (HEX format)"
             value={formData.macaroon}
             onChange={handleMacaroon}
             required
+            endAdornment={
+              <PasswordViewAdornment
+                onChange={(passwordView) => {
+                  setMacaroonVisible(passwordView);
+                }}
+              />
+            }
           />
         </div>
       </div>

@@ -7,11 +7,11 @@ declare global {
   }
 }
 
-const urlMatcher = /^https:\/\/(mobile.)?twitter\.com\/(\w+).*/;
+const urlMatcher = /^https:\/\/(mobile.)?(twitter|x)\.com\/(\w+).*/;
 
 function getUsername() {
   const matchData = document.location.toString().match(urlMatcher);
-  if (matchData) return matchData[2];
+  if (matchData) return matchData[3];
   return "";
 }
 
@@ -38,9 +38,11 @@ function getUserData(username: string) {
     const element = document.querySelector(
       '[data-testid="primaryColumn"] [data-testid="UserDescription"]'
     );
-    const imageUrl = document.querySelector<HTMLImageElement>(
-      `[data-testid="primaryColumn"] a[href="/${username}/photo" i] img`
-    )?.src;
+    const imageUrl = document.querySelectorAll<HTMLImageElement>(
+      `[data-testid="primaryColumn"] a[href="/${username}/photo" i] img,
+       [data-testid="primaryColumn"] a[href="/${username}/nft" i] img` // for nft profile
+    )?.[0].src;
+
     const location = document.querySelector<HTMLElement>(
       `[data-testid="primaryColumn"] [data-testid="UserLocation"]`
     );
@@ -64,9 +66,8 @@ function getUserData(username: string) {
     if (element && imageUrl) {
       return {
         element,
-        name: `${
-          profileLinks[1].querySelector("span")?.textContent
-        } (@${username}) / Twitter`,
+        name: `${profileLinks[1].querySelector("span")
+          ?.textContent} (@${username}) / Twitter`,
         imageUrl,
       };
     }

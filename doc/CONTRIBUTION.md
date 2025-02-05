@@ -4,7 +4,7 @@ We welcome and appreciate new contributions.
 
 ### Testnet/testing-accounts for development use Alby testnet
 
-We set up our own internal testnet, which can be used for your development.
+We have setup some testnet nodes, which can be used for your development.
 If this is not reachable please let us know.
 
 - [Test-setup](https://github.com/getAlby/lightning-browser-extension/wiki/Test-setup) for different connectors (i.e. LND)
@@ -74,7 +74,7 @@ Alby uses [Weblate](https://weblate.org/en/) to manage translations for differen
 1. **Common**\
    All the common words and actions (Confirm, Delete, Edit...)
 1. **Components**\
-   The i18n strings which exist within the components (AllowanceMenu, QRCodeScanner, PublisherCard...)
+   The i18n strings which exist within the components (SitePreferences, QRCodeScanner, PublisherCard...)
 
 #### Use underscores instead of camelCase
 

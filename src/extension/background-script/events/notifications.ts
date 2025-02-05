@@ -9,7 +9,7 @@ import type { AuthNotificationData, PaymentNotificationData } from "~/types";
 import { notify } from "./helpers";
 
 const paymentSuccessNotification = async (
-  message: "ln.sendPayment.success",
+  message: "ln.sendPayment.success" | "ln.keysend.success",
   data: PaymentNotificationData
 ) => {
   const recipient = data?.origin?.name;
@@ -22,7 +22,7 @@ const paymentSuccessNotification = async (
 
   const route = paymentResponseData?.data.route;
   const { total_amt, total_fees } = route;
-  const paymentAmount = total_amt - total_fees;
+  const paymentAmount = total_amt;
 
   const { settings } = state.getState();
   const { showFiat, currency, locale } = settings;
@@ -65,7 +65,7 @@ const paymentSuccessNotification = async (
 };
 
 const paymentFailedNotification = (
-  message: "ln.sendPayment.failed",
+  message: "ln.sendPayment.failed" | "ln.keysend.failed",
   data: PaymentNotificationData
 ) => {
   let error;
@@ -74,11 +74,6 @@ const paymentFailedNotification = (
   if ("error" in paymentResponseData) {
     // general error
     error = paymentResponseData.error;
-  } else if (
-    // lnd payment error
-    paymentResponseData.data.payment_error
-  ) {
-    error = paymentResponseData.data.payment_error;
   }
 
   return notify({
@@ -116,8 +111,8 @@ const lnurlAuthFailedNotification = (
 };
 
 export {
-  paymentSuccessNotification,
-  paymentFailedNotification,
-  lnurlAuthSuccessNotification,
   lnurlAuthFailedNotification,
+  lnurlAuthSuccessNotification,
+  paymentFailedNotification,
+  paymentSuccessNotification,
 };

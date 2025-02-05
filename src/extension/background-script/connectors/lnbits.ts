@@ -1,25 +1,24 @@
-import lightningPayReq from "bolt11";
+import lightningPayReq from "bolt11-signet";
 import Hex from "crypto-js/enc-hex";
 import sha256 from "crypto-js/sha256";
-import utils from "~/common/lib/utils";
 import HashKeySigner from "~/common/utils/signer";
+import { Account } from "~/types";
 
-import state from "../state";
 import Connector, {
-  SendPaymentArgs,
-  SendPaymentResponse,
   CheckPaymentArgs,
   CheckPaymentResponse,
-  ConnectorInvoice,
+  ConnectorTransaction,
   ConnectPeerResponse,
-  GetInfoResponse,
-  GetInvoicesResponse,
   GetBalanceResponse,
+  GetInfoResponse,
+  GetTransactionsResponse,
+  KeysendArgs,
   MakeInvoiceArgs,
   MakeInvoiceResponse,
+  SendPaymentArgs,
+  SendPaymentResponse,
   SignMessageArgs,
   SignMessageResponse,
-  KeysendArgs,
 } from "./connector.interface";
 
 interface Config {
@@ -28,9 +27,11 @@ interface Config {
 }
 
 class LnBits implements Connector {
+  account: Account;
   config: Config;
 
-  constructor(config: Config) {
+  constructor(account: Account, config: Config) {
+    this.account = account;
     this.config = config;
   }
 
@@ -43,7 +44,14 @@ class LnBits implements Connector {
   }
 
   get supportedMethods() {
-    return ["getInfo", "makeInvoice", "sendPayment", "signMessage"];
+    return [
+      "getInfo",
+      "makeInvoice",
+      "sendPayment",
+      "sendPaymentAsync",
+      "signMessage",
+      "getBalance",
+    ];
   }
 
   getInfo(): Promise<GetInfoResponse> {
@@ -80,7 +88,7 @@ class LnBits implements Connector {
         "fee": 0,
         "memo": "LNbits",
         "time": 1000000000,
-        "bolt11": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "bolt11-signet": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
         "payment_hash": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "extra": {},
@@ -90,7 +98,8 @@ class LnBits implements Connector {
       }
     ]
   */
-  async getInvoices(): Promise<GetInvoicesResponse> {
+
+  getTransactions(): Promise<GetTransactionsResponse> {
     return this.request(
       "GET",
       "/api/v1/payments",
@@ -113,23 +122,35 @@ class LnBits implements Connector {
           webhook_status: string;
         }[]
       ) => {
-        const invoices: ConnectorInvoice[] = data
-          .filter((invoice) => invoice.amount > 0)
-          .map((invoice, index): ConnectorInvoice => {
+        const transactions: ConnectorTransaction[] = data
+          .map((transaction, index): ConnectorTransaction => {
+            const decoded = lightningPayReq.decode(transaction.bolt11);
+
+            const creationDate = decoded.timestamp
+              ? decoded.timestamp * 1000
+              : new Date(0).getTime();
+
             return {
-              id: `${invoice.checking_id}-${index}`,
-              memo: invoice.memo,
-              preimage: invoice.preimage,
-              settled: !invoice.pending,
-              settleDate: invoice.time * 1000,
-              totalAmount: `${Math.floor(invoice.amount / 1000)}`,
-              type: "received",
+              id: `${transaction.checking_id}-${index}`,
+              memo: transaction.memo,
+              preimage:
+                transaction.preimage !=
+                "0000000000000000000000000000000000000000000000000000000000000000"
+                  ? transaction.preimage
+                  : "",
+              payment_hash: transaction.payment_hash,
+              settled: !transaction.pending,
+              settleDate: transaction.time * 1000,
+              creationDate: creationDate,
+              totalAmount: Math.abs(Math.floor(transaction.amount / 1000)),
+              type: transaction.amount > 0 ? "received" : "sent",
             };
-          });
+          })
+          .filter((transaction) => transaction.settled);
 
         return {
           data: {
-            invoices,
+            transactions,
           },
         };
       }
@@ -198,18 +219,10 @@ class LnBits implements Connector {
     if (!args.message) {
       return Promise.reject(new Error("Invalid message"));
     }
-    let message: string | Uint8Array;
-    message = sha256(args.message).toString(Hex);
+    const message = sha256(args.message).toString(Hex);
     // create a signing key from the lnbits adminkey
-    let keyHex = sha256(`lnbits://${this.config.adminkey}`).toString(Hex);
+    const keyHex = sha256(`lnbits://${this.config.adminkey}`).toString(Hex);
 
-    const { settings } = state.getState();
-    if (settings.legacyLnurlAuth) {
-      message = utils.stringToUint8Array(args.message);
-      keyHex = sha256(
-        `LBE-LNBITS-${this.config.url}-${this.config.adminkey}`
-      ).toString(Hex);
-    }
     if (!keyHex) {
       return Promise.reject(new Error("Could not create key"));
     }
